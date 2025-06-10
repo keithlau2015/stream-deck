@@ -29,7 +29,7 @@ Ideal for creating your own customizable macro deck or personal launcher.
 3. In the terminal window, paste the following command:
 
 ```bash
-pip install pygame pyperclip
+pip install pygame pyperclip pyserial
 ```
 
 If you get an error like `'pip' is not recognized`, try restarting your PC.
@@ -58,7 +58,9 @@ If everything is set up correctly, a graphical window will open.
   - a `.exe` file on your PC
   - or no action
 - Modify the fields directly inside the app
+- Use the "Browse" button to select `.exe` files
 - Save your changes only when you're ready
+- Supports volume control, mute toggle, and media play/pause via serial
 
 Settings are stored in a local file called `config.json`.
 
