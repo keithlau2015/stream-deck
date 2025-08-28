@@ -73,16 +73,23 @@ is_muted = False
 
 # Config reload mechanism
 config_reload_event = threading.Event()
+gpio_reload_event = threading.Event()
 current_config = None
 
 def reload_gpio_config():
     """Reload GPIO configuration from file"""
-    global gpio_config, ARDUINO_PORT, BAUDRATE, SERIAL_TIMEOUT, VOLUME_ENABLED, VOLUME_DEFAULT, MEDIA_ENABLED, DEBUG_ENABLED
+    global gpio_config, ARDUINO_PORT, BAUDRATE, SERIAL_TIMEOUT, VOLUME_ENABLED, VOLUME_DEFAULT, MEDIA_ENABLED, DEBUG_ENABLED, gpio_reload_event
     
     try:
         if os.path.exists(GPIO_CONFIG_FILE):
             with open(GPIO_CONFIG_FILE, 'r') as f:
                 new_config = json.load(f)
+                
+                # Check if Arduino connection settings changed
+                old_port = ARDUINO_PORT
+                old_baudrate = BAUDRATE
+                old_timeout = SERIAL_TIMEOUT
+                
                 gpio_config = new_config
                 
                 # Update all configuration variables
@@ -96,6 +103,12 @@ def reload_gpio_config():
                 
                 print(f"[GPIO] Configuration reloaded from {GPIO_CONFIG_FILE}")
                 print(f"[GPIO] Arduino: {ARDUINO_PORT} @ {BAUDRATE} baud")
+                
+                # Signal GPIO reload if connection settings changed
+                if old_port != ARDUINO_PORT or old_baudrate != BAUDRATE or old_timeout != SERIAL_TIMEOUT:
+                    gpio_reload_event.set()
+                    print(f"[GPIO] Arduino connection settings changed - forcing reconnection")
+                
                 return True
         else:
             print(f"[GPIO ERROR] Configuration file {GPIO_CONFIG_FILE} not found")
@@ -202,7 +215,7 @@ def signal_config_reload():
 
 def listen_serial_with_reload():
     """Enhanced serial listener that can reload config when signaled"""
-    global current_config, config_reload_event
+    global current_config, config_reload_event, gpio_reload_event
     from prefController import load_pref
     
     # Load initial config
@@ -216,6 +229,12 @@ def listen_serial_with_reload():
                 print(f"[GPIO] Connected to {ARDUINO_PORT}")
                 
                 while True:
+                    # Check if GPIO reload was requested (connection settings changed)
+                    if gpio_reload_event.is_set():
+                        gpio_reload_event.clear()
+                        print(f"[GPIO] GPIO settings changed - reconnecting...")
+                        break  # Break out of serial loop to reconnect with new settings
+                    
                     # Check if config reload was requested
                     if config_reload_event.is_set():
                         current_config = load_pref()
@@ -225,6 +244,11 @@ def listen_serial_with_reload():
                         # Also reload GPIO config if requested
                         if reload_gpio_config():
                             print(f"[GPIO] GPIO configuration also reloaded")
+                            # Check if GPIO reload event was set during reload
+                            if gpio_reload_event.is_set():
+                                gpio_reload_event.clear()
+                                print(f"[GPIO] GPIO settings changed during reload - reconnecting...")
+                                break  # Break out to reconnect
                     
                     # Read serial data with timeout
                     line = ser.readline().decode('utf-8').strip()
