@@ -130,7 +130,7 @@ def start_serial_background():
     print("[MAIN] Serial monitoring started in background")
 
 def main():
-    print("ConsoleDeck V2 - Starting background service...")
+    print("StreamDeck V2 - Starting background service...")
     start_serial_background()
     # Run system tray (this blocks until quit)
     tray.create_tray_icon(open_gui)

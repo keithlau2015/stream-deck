@@ -34,7 +34,7 @@ def init_pygame():
     FONT = pygame.font.SysFont(None, 24)
     SMALL_FONT = pygame.font.SysFont(None, 16)
     SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("ConsoleDeck V2")
+    pygame.display.set_caption("StreamDeck V2")
 
 
 def draw_buttons(config, selected=None):

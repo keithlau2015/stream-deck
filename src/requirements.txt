@@ -1,4 +1,4 @@
-# ConsoleDeck V2 Dependencies
+# StreamDeck V2 Dependencies
 # Core GUI and Graphics
 pygame>=2.1.0
 

@@ -1,0 +1,357 @@
+import os
+import json
+import copy
+import tkinter as tk
+from tkinter import ttk, messagebox
+import sys
+
+# Configuration file path
+GPIO_CONFIG_FILE = "gpio_config.json"
+
+# Default configuration values
+DEFAULT_CONFIG = {
+    "arduino": {
+        "port": "COM7",
+        "baudrate": 9600,
+        "timeout": 1
+    },
+    "volume": {
+        "enabled": True,
+        "default_value": 0
+    },
+    "media": {
+        "enabled": True
+    },
+    "debug": {
+        "enabled": True,
+        "log_level": "INFO"
+    }
+}
+
+def load_gpio_config():
+    """Load GPIO configuration from file or create default if not exists"""
+    try:
+        if os.path.exists(GPIO_CONFIG_FILE):
+            with open(GPIO_CONFIG_FILE, 'r') as f:
+                config = json.load(f)
+                print(f"[GPIO CONFIG] Configuration loaded from {GPIO_CONFIG_FILE}")
+                return config
+        else:
+            # Create default config file
+            with open(GPIO_CONFIG_FILE, 'w') as f:
+                json.dump(DEFAULT_CONFIG, f, indent=4)
+                print(f"[GPIO CONFIG] Created default configuration file: {GPIO_CONFIG_FILE}")
+                return DEFAULT_CONFIG
+    except Exception as e:
+        print(f"[GPIO CONFIG ERROR] Failed to load configuration: {e}")
+        print(f"[GPIO CONFIG] Using default configuration")
+        return DEFAULT_CONFIG
+
+def save_gpio_config(config):
+    """Save GPIO configuration to file"""
+    try:
+        with open(GPIO_CONFIG_FILE, 'w') as f:
+            json.dump(config, f, indent=4)
+        print(f"[GPIO CONFIG] Configuration saved to {GPIO_CONFIG_FILE}")
+        return True
+    except Exception as e:
+        print(f"[GPIO CONFIG ERROR] Failed to save configuration: {e}")
+        return False
+
+def validate_com_port(port):
+    """Validate COM port format"""
+    if not port.upper().startswith('COM'):
+        return False
+    try:
+        port_num = int(port[3:])
+        return 1 <= port_num <= 99
+    except ValueError:
+        return False
+
+def validate_baudrate(baudrate):
+    """Validate baudrate value"""
+    valid_rates = [9600, 19200, 38400, 57600, 115200]
+    try:
+        rate = int(baudrate)
+        return rate in valid_rates
+    except ValueError:
+        return False
+
+class GPIOConfigGUI:
+    def __init__(self):
+        # Create main window
+        self.root = tk.Tk()
+        self.root.title("StreamDeck V2 - GPIO Settings")
+        self.root.geometry("520x450")
+        self.root.resizable(False, False)
+        
+        # Set window icon (if available)
+        try:
+            self.root.iconbitmap(default='icon.ico')
+        except:
+            pass  # Ignore if icon file doesn't exist
+        
+        # Configure dark theme colors
+        self.bg_color = "#282828"
+        self.panel_color = "#3c3c3c"
+        self.button_color = "#505050"
+        self.text_color = "#ffffff"
+        self.accent_color = "#ff7700"
+        
+        self.root.configure(bg=self.bg_color)
+        
+        # Load current configuration
+        self.config = load_gpio_config()
+        self.original_config = copy.deepcopy(self.config)
+        
+        # Create StringVar for input fields
+        self.port_var = tk.StringVar(value=str(self.config['arduino']['port']))
+        self.baudrate_var = tk.StringVar(value=str(self.config['arduino']['baudrate']))
+        self.timeout_var = tk.StringVar(value=str(self.config['arduino']['timeout']))
+        
+        # Create BooleanVar for checkboxes
+        self.volume_var = tk.BooleanVar(value=self.config['volume']['enabled'])
+        self.media_var = tk.BooleanVar(value=self.config['media']['enabled'])
+        self.debug_var = tk.BooleanVar(value=self.config['debug']['enabled'])
+        
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Setup the tkinter UI"""
+        # Configure style for dark theme
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Configure styles for dark theme
+        style.configure('Title.TLabel', 
+                       background=self.bg_color, 
+                       foreground=self.text_color, 
+                       font=('Segoe UI', 16, 'bold'))
+        
+        style.configure('Section.TLabel',
+                       background=self.panel_color,
+                       foreground=self.text_color,
+                       font=('Segoe UI', 11, 'bold'))
+        
+        style.configure('Hint.TLabel',
+                       background=self.panel_color,
+                       foreground='#aaaaaa',
+                       font=('Segoe UI', 8))
+        
+        style.configure('Dark.TFrame',
+                       background=self.panel_color,
+                       borderwidth=1,
+                       relief='solid',
+                       bordercolor='#555555')
+        
+        style.configure('Main.TFrame',
+                       background=self.bg_color)
+        
+        style.configure('Dark.TEntry',
+                       fieldbackground='#505050',
+                       background='#505050',
+                       foreground=self.text_color,
+                       borderwidth=1,
+                       insertcolor=self.text_color,
+                       selectbackground=self.accent_color,
+                       selectforeground='white')
+        
+        style.configure('Dark.TCombobox',
+                       fieldbackground='#505050',
+                       background='#505050',
+                       foreground=self.text_color,
+                       borderwidth=1,
+                       selectbackground=self.accent_color,
+                       selectforeground='white',
+                       arrowcolor=self.text_color)
+        
+        style.configure('Dark.TCheckbutton',
+                       background=self.panel_color,
+                       foreground=self.text_color,
+                       focuscolor='none',
+                       indicatorcolor='#505050',
+                       indicatorbackground='#505050',
+                       indicatorforeground=self.text_color)
+        
+        style.configure('Save.TButton',
+                       background=self.accent_color,
+                       foreground='white',
+                       borderwidth=1,
+                       focuscolor='none')
+        
+        style.configure('Cancel.TButton',
+                       background='#666666',
+                       foreground='white',
+                       borderwidth=1,
+                       focuscolor='none')
+        
+        style.map('Dark.TEntry',
+                 focuscolor=[('!focus', 'none')],
+                 bordercolor=[('focus', self.accent_color)])
+        
+        style.map('Dark.TCombobox',
+                 focuscolor=[('!focus', 'none')],
+                 bordercolor=[('focus', self.accent_color)])
+        
+        style.map('Save.TButton',
+                 background=[('active', '#ff8800')],
+                 relief=[('pressed', 'flat')])
+        
+        style.map('Cancel.TButton',
+                 background=[('active', '#777777')],
+                 relief=[('pressed', 'flat')])
+        
+        # Main container with proper background
+        main_frame = ttk.Frame(self.root, style='Main.TFrame')
+        main_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Main title
+        title_label = ttk.Label(main_frame, text="GPIO Configuration", style='Title.TLabel')
+        title_label.pack(pady=(0, 20))
+        
+        # Arduino Connection Frame
+        arduino_frame = ttk.Frame(main_frame, style='Dark.TFrame', padding=15)
+        arduino_frame.pack(fill='x', pady=(0, 15))
+        
+        ttk.Label(arduino_frame, text="Arduino Connection", style='Section.TLabel').pack(anchor='w', pady=(0, 10))
+        
+        # Input fields frame with better spacing
+        inputs_frame = ttk.Frame(arduino_frame, style='Dark.TFrame')
+        inputs_frame.pack(fill='x', pady=5)
+        
+        # COM Port
+        port_frame = ttk.Frame(inputs_frame, style='Dark.TFrame')
+        port_frame.pack(side='left', padx=(0, 15), fill='y')
+        ttk.Label(port_frame, text="COM Port:", style='Section.TLabel').pack(anchor='w')
+        self.port_entry = ttk.Entry(port_frame, textvariable=self.port_var, width=12, style='Dark.TEntry')
+        self.port_entry.pack(pady=(2, 2))
+        ttk.Label(port_frame, text="Format: COM1-COM99", style='Hint.TLabel').pack(anchor='w')
+        
+        # Baud Rate
+        baud_frame = ttk.Frame(inputs_frame, style='Dark.TFrame')
+        baud_frame.pack(side='left', padx=(0, 15), fill='y')
+        ttk.Label(baud_frame, text="Baud Rate:", style='Section.TLabel').pack(anchor='w')
+        self.baud_combo = ttk.Combobox(baud_frame, textvariable=self.baudrate_var, width=12,
+                                      values=['9600', '19200', '38400', '57600', '115200'],
+                                      state='readonly', style='Dark.TCombobox')
+        self.baud_combo.pack(pady=(2, 2))
+        ttk.Label(baud_frame, text="Standard rates", style='Hint.TLabel').pack(anchor='w')
+        
+        # Timeout
+        timeout_frame = ttk.Frame(inputs_frame, style='Dark.TFrame')
+        timeout_frame.pack(side='left', fill='y')
+        ttk.Label(timeout_frame, text="Timeout (s):", style='Section.TLabel').pack(anchor='w')
+        self.timeout_entry = ttk.Entry(timeout_frame, textvariable=self.timeout_var, width=12, style='Dark.TEntry')
+        self.timeout_entry.pack(pady=(2, 2))
+        ttk.Label(timeout_frame, text="0.1 - 10 seconds", style='Hint.TLabel').pack(anchor='w')
+        
+        # Features Frame
+        features_frame = ttk.Frame(main_frame, style='Dark.TFrame', padding=15)
+        features_frame.pack(fill='x', pady=(0, 15))
+        
+        ttk.Label(features_frame, text="Features", style='Section.TLabel').pack(anchor='w', pady=(0, 10))
+        
+        # Checkboxes with better spacing
+        checkbox_frame = ttk.Frame(features_frame, style='Dark.TFrame')
+        checkbox_frame.pack(fill='x')
+        
+        self.volume_check = ttk.Checkbutton(checkbox_frame, text="Volume Control", 
+                                           variable=self.volume_var, style='Dark.TCheckbutton')
+        self.volume_check.pack(anchor='w', pady=3)
+        
+        self.media_check = ttk.Checkbutton(checkbox_frame, text="Media Control",
+                                          variable=self.media_var, style='Dark.TCheckbutton')
+        self.media_check.pack(anchor='w', pady=3)
+        
+        self.debug_check = ttk.Checkbutton(checkbox_frame, text="Debug Logging",
+                                          variable=self.debug_var, style='Dark.TCheckbutton')
+        self.debug_check.pack(anchor='w', pady=3)
+        
+        # Buttons Frame
+        buttons_frame = ttk.Frame(main_frame, style='Main.TFrame')
+        buttons_frame.pack(fill='x', pady=(15, 0))
+        
+        # Save and Cancel buttons with custom styles
+        ttk.Button(buttons_frame, text="Cancel", command=self.cancel, 
+                  style='Cancel.TButton', width=10).pack(side='right', padx=(10, 0))
+        ttk.Button(buttons_frame, text="Save", command=self.save_config, 
+                  style='Save.TButton', width=10).pack(side='right')
+    
+    def validate_inputs(self):
+        """Validate all input fields"""
+        errors = []
+        
+        # Validate COM port
+        if not validate_com_port(self.port_var.get()):
+            errors.append("Invalid COM port format")
+        
+        # Validate baud rate
+        if not validate_baudrate(self.baudrate_var.get()):
+            errors.append("Invalid baud rate")
+        
+        # Validate timeout
+        try:
+            timeout = float(self.timeout_var.get())
+            if timeout < 0.1 or timeout > 10:
+                errors.append("Timeout must be between 0.1 and 10 seconds")
+        except ValueError:
+            errors.append("Invalid timeout value")
+        
+        return errors
+    
+    def save_config(self):
+        """Save the current configuration"""
+        errors = self.validate_inputs()
+        if errors:
+            messagebox.showerror("Validation Error", "\n".join(errors))
+            return False
+        
+        # Update configuration
+        self.config['arduino']['port'] = self.port_var.get().upper()
+        self.config['arduino']['baudrate'] = int(self.baudrate_var.get())
+        self.config['arduino']['timeout'] = float(self.timeout_var.get())
+        
+        self.config['volume']['enabled'] = self.volume_var.get()
+        self.config['media']['enabled'] = self.media_var.get()
+        self.config['debug']['enabled'] = self.debug_var.get()
+        
+        # Save to file
+        if save_gpio_config(self.config):
+            messagebox.showinfo("Success", "Configuration saved successfully!")
+            
+            # Trigger GPIO config reload
+            try:
+                from gpio import signal_config_reload
+                signal_config_reload()
+                print("[GPIO CONFIG] Reload signal sent to GPIO system")
+            except Exception as e:
+                print(f"[GPIO CONFIG] Warning: Could not signal reload: {e}")
+            
+            self.root.destroy()
+            return True
+        else:
+            messagebox.showerror("Error", "Failed to save configuration!")
+            return False
+    
+    def cancel(self):
+        """Cancel and close the configuration window"""
+        self.root.destroy()
+    
+    def run(self):
+        """Main GUI loop"""
+        # Center the window
+        self.root.update_idletasks()
+        x = (self.root.winfo_screenwidth() // 2) - (self.root.winfo_width() // 2)
+        y = (self.root.winfo_screenheight() // 2) - (self.root.winfo_height() // 2)
+        self.root.geometry(f"+{x}+{y}")
+        
+        # Start the tkinter main loop
+        self.root.mainloop()
+
+def open_gpio_config_gui():
+    """Open the GPIO configuration GUI"""
+    try:
+        gui = GPIOConfigGUI()
+        gui.run()
+    except Exception as e:
+        print(f"[GPIO CONFIG ERROR] Failed to open GUI: {e}")

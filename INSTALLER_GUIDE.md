@@ -1,6 +1,6 @@
-# 🚀 ConsoleDeck Professional Installer Guide
+# 🚀 StreamDeck Professional Installer Guide
 
-This guide explains how to create a professional Windows installer for ConsoleDeck using Inno Setup with automated GPIO configuration.
+This guide explains how to create a professional Windows installer for StreamDeck using Inno Setup with automated GPIO configuration.
 
 ## 📋 Prerequisites
 
@@ -33,7 +33,7 @@ This creates:
 
 Build the standalone executable:
 ```bash
-pyinstaller --onefile --windowed --name=ConsoleDeck --add-data="src/gpio_config.json;." --add-data="src/pref.json;." --add-data="console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
+pyinstaller --onefile --windowed --name=StreamDeck --add-data="src/gpio_config.json;." --add-data="src/pref.json;." --add-data="console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
 ```
 
 ### Step 4: Create the Installer
@@ -43,7 +43,7 @@ Build the professional installer:
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer_script.iss
 ```
 
-This generates `installer/ConsoleDeck_Setup.exe`
+This generates `installer/StreamDeck_Setup.exe`
 
 ## 🎯 Installer Features
 
@@ -69,7 +69,7 @@ The installer prompts users to configure:
 ### Post-Installation
 - Automatic creation of `gpio_config.json` with user's settings
 - Default `pref.json` with empty button configuration
-- Option to launch ConsoleDeck immediately
+- Option to launch StreamDeck immediately
 - Desktop and start menu shortcuts created
 - Optional Windows startup registration
 
@@ -79,13 +79,13 @@ After running the installer creation:
 
 ```
 installer/
-└── ConsoleDeck_Setup.exe    # Professional installer
+└── StreamDeck_Setup.exe    # Professional installer
 ```
 
 ## 🎮 User Installation Experience
 
 ### Installation Process
-1. **Welcome Screen** - Overview of ConsoleDeck features
+1. **Welcome Screen** - Overview of StreamDeck features
 2. **License Agreement** - MIT License acceptance
 3. **Installation Directory** - Choose install location
 4. **GPIO Configuration** - Configure Arduino settings
@@ -107,10 +107,10 @@ Edit `installer_script.iss` to customize:
 
 ```pascal
 [Setup]
-AppName=ConsoleDeck                    # Application name
+AppName=StreamDeck                    # Application name
 AppVersion=2.0                         # Version number
-AppPublisher=ConsoleDeck Team          # Publisher name
-DefaultDirName={autopf}\ConsoleDeck    # Install directory
+AppPublisher=StreamDeck Team          # Publisher name
+DefaultDirName={autopf}\StreamDeck    # Install directory
 ```
 
 ### Add Custom Pages
@@ -173,7 +173,7 @@ python create_installer_assets.py
 ## 📦 Distribution
 
 ### What to Distribute
-- `ConsoleDeck_Setup.exe` - The complete installer
+- `StreamDeck_Setup.exe` - The complete installer
 - `README.md` - User documentation
 - `arduino_code/` - Arduino sketch files (optional)
 

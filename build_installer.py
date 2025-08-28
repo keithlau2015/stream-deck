@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ConsoleDeck Installer Builder
-This script builds the ConsoleDeck executable using PyInstaller and creates an installer.
+StreamDeck Installer Builder
+This script builds the StreamDeck executable using PyInstaller and creates an installer.
 """
 
 import os
@@ -49,14 +49,14 @@ def create_gpio_config_template():
 
 def build_executable():
     """Build the executable using PyInstaller"""
-    print("\n🔨 Building ConsoleDeck executable...")
+    print("\n🔨 Building StreamDeck executable...")
     
     # PyInstaller command
     cmd = [
         "pyinstaller",
         "--onefile",
         "--windowed",
-        "--name=ConsoleDeck",
+        "--name=StreamDeck",
         "--add-data=src/gpio_config.json;.",
         "--add-data=src/pref.json;.",
         "--add-data=console_deck_v2_arduino_code;console_deck_v2_arduino_code",
@@ -107,19 +107,19 @@ def find_inno_setup():
 def create_installer_script():
     """Create Inno Setup script for the installer"""
     script = """[Setup]
-AppName=ConsoleDeck
+AppName=StreamDeck
 AppVersion=2.0
-AppPublisher=ConsoleDeck Team
+AppPublisher=StreamDeck Team
 AppPublisherURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppSupportURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppUpdatesURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
-DefaultDirName={autopf}\\ConsoleDeck
-DefaultGroupName=ConsoleDeck
+DefaultDirName={autopf}\\StreamDeck
+DefaultGroupName=StreamDeck
 AllowNoIcons=yes
 LicenseFile=LICENSE.txt
 OutputDir=installer
-OutputBaseFilename=ConsoleDeck_Setup
+OutputBaseFilename=StreamDeck_Setup
 SetupIconFile=icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -134,12 +134,12 @@ DisableDirPage=no
 DisableReadyPage=no
 DisableFinishedPage=no
 ShowLanguageDialog=no
-UninstallDisplayIcon={app}\\ConsoleDeck.exe
-UninstallDisplayName=ConsoleDeck
+UninstallDisplayIcon={app}\\StreamDeck.exe
+UninstallDisplayName=StreamDeck
 VersionInfoVersion=2.0.0.0
-VersionInfoCompany=ConsoleDeck Team
-VersionInfoDescription=ConsoleDeck - Customizable Macro Deck
-VersionInfoCopyright=© 2024 ConsoleDeck Team
+VersionInfoCompany=StreamDeck Team
+VersionInfoDescription=StreamDeck - Customizable Macro Deck
+VersionInfoCopyright=© 2024 StreamDeck Team
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -147,28 +147,28 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
-Name: "startup"; Description: "Start ConsoleDeck when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
+Name: "startup"; Description: "Start StreamDeck when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
 
 [Files]
-Source: "dist\\ConsoleDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\\StreamDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "gpio_config_template.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "src\\pref.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "console_deck_v2_arduino_code\\*"; DestDir: "{app}\\arduino_code"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\\ConsoleDeck"; Filename: "{app}\\ConsoleDeck.exe"
-Name: "{group}\\Configure GPIO"; Filename: "{app}\\ConsoleDeck.exe"; Parameters: "--config-gpio"
-Name: "{group}\\Uninstall ConsoleDeck"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\\ConsoleDeck"; Filename: "{app}\\ConsoleDeck.exe"; Tasks: desktopicon
-Name: "{userappdata}\\Microsoft\\Internet Explorer\\Quick Launch\\ConsoleDeck"; Filename: "{app}\\ConsoleDeck.exe"; Tasks: quicklaunchicon
+Name: "{group}\\StreamDeck"; Filename: "{app}\\StreamDeck.exe"
+Name: "{group}\\Configure GPIO"; Filename: "{app}\\StreamDeck.exe"; Parameters: "--config-gpio"
+Name: "{group}\\Uninstall StreamDeck"; Filename: "{uninstallexe}"
+Name: "{autodesktop}\\StreamDeck"; Filename: "{app}\\StreamDeck.exe"; Tasks: desktopicon
+Name: "{userappdata}\\Microsoft\\Internet Explorer\\Quick Launch\\StreamDeck"; Filename: "{app}\\StreamDeck.exe"; Tasks: quicklaunchicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "ConsoleDeck"; ValueData: """{app}\\ConsoleDeck.exe"""; Flags: uninsdeletevalue; Tasks: startup
+Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "StreamDeck"; ValueData: """{app}\\StreamDeck.exe"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
-Filename: "{app}\\ConsoleDeck.exe"; Description: "{cm:LaunchProgram,ConsoleDeck}"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\\ConsoleDeck.exe"; Parameters: "--config-gpio"; Description: "Configure GPIO Settings"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\\StreamDeck.exe"; Description: "{cm:LaunchProgram,StreamDeck}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\\StreamDeck.exe"; Parameters: "--config-gpio"; Description: "Configure GPIO Settings"; Flags: nowait postinstall skipifsilent
 
 [Code]
 var
@@ -180,7 +180,7 @@ procedure InitializeWizard;
 begin
   ConfigPage := CreateInputQueryPage(wpWelcome,
     'GPIO Configuration', 'Configure your Arduino connection settings',
-    'Please specify the Arduino connection settings. You can change these later by running ConsoleDeck with --config-gpio parameter.');
+    'Please specify the Arduino connection settings. You can change these later by running StreamDeck with --config-gpio parameter.');
     
   ConfigPage.Add('Arduino COM Port (e.g., COM3, COM7):', False);
   ConfigPage.Add('Baud Rate (default: 9600):', False);
@@ -234,19 +234,19 @@ end;
 def create_simple_installer():
     """Create a simple batch file installer as fallback"""
     installer_bat = """@echo off
-echo ConsoleDeck Installer
+echo StreamDeck Installer
 echo ====================
 echo.
 
 REM Create installation directory
-set INSTALL_DIR=%USERPROFILE%\\ConsoleDeck
+set INSTALL_DIR=%USERPROFILE%\\StreamDeck
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 echo Installing to: %INSTALL_DIR%
 echo.
 
 REM Copy files
-copy "dist\\ConsoleDeck.exe" "%INSTALL_DIR%\\"
+copy "dist\\StreamDeck.exe" "%INSTALL_DIR%\\"
 copy "gpio_config_template.json" "%INSTALL_DIR%\\"
 copy "src\\pref.json" "%INSTALL_DIR%\\"
 if exist "console_deck_v2_arduino_code" xcopy "console_deck_v2_arduino_code" "%INSTALL_DIR%\\arduino_code\\" /E /I /Y
@@ -284,20 +284,20 @@ echo }>> "%INSTALL_DIR%\\gpio_config.json"
 
 REM Create desktop shortcut
 echo Creating desktop shortcut...
-powershell "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\\Desktop\\ConsoleDeck.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\\ConsoleDeck.exe'; $Shortcut.Save()"
+powershell "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%USERPROFILE%\\Desktop\\StreamDeck.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\\StreamDeck.exe'; $Shortcut.Save()"
 
 REM Create start menu shortcut
 echo Creating start menu shortcut...
-if not exist "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\ConsoleDeck" mkdir "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\ConsoleDeck"
-powershell "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\ConsoleDeck\\ConsoleDeck.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\\ConsoleDeck.exe'; $Shortcut.Save()"
+if not exist "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\StreamDeck" mkdir "%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\StreamDeck"
+powershell "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\StreamDeck\\StreamDeck.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\\StreamDeck.exe'; $Shortcut.Save()"
 
 echo.
 echo Installation complete!
-echo ConsoleDeck has been installed to: %INSTALL_DIR%
+echo StreamDeck has been installed to: %INSTALL_DIR%
 echo Desktop shortcut created.
 echo Start menu shortcut created.
 echo.
-echo To run ConsoleDeck, double-click the desktop shortcut or use the start menu.
+echo To run StreamDeck, double-click the desktop shortcut or use the start menu.
 echo.
 pause
 """
@@ -309,7 +309,7 @@ pause
 
 def main():
     """Main build process"""
-    print("🎮 ConsoleDeck Installer Builder")
+    print("🎮 StreamDeck Installer Builder")
     print("=" * 40)
     
     # Check dependencies
@@ -337,7 +337,7 @@ def main():
         
         if result.returncode == 0:
             print("✓ Professional installer created successfully!")
-            print("  - installer/ConsoleDeck_Setup.exe")
+            print("  - installer/StreamDeck_Setup.exe")
         else:
             print("✗ Professional installer creation failed:")
             print(result.stderr)
@@ -349,15 +349,15 @@ def main():
     
     print("\n🎉 Build completed successfully!")
     print("\nGenerated files:")
-    print("  - dist/ConsoleDeck.exe (main executable)")
+    print("  - dist/StreamDeck.exe (main executable)")
     print("  - installer_script.iss (Inno Setup script)")
     print("  - install.bat (simple batch installer)")
     print("  - gpio_config_template.json (configuration template)")
     
     if iscc_path:
         print("\nProfessional installer created:")
-        print("  - installer/ConsoleDeck_Setup.exe")
-        print("\nUsers can run ConsoleDeck_Setup.exe for a professional installation experience!")
+        print("  - installer/StreamDeck_Setup.exe")
+        print("\nUsers can run StreamDeck_Setup.exe for a professional installation experience!")
     else:
         print("\nSimple installer available:")
         print("  - install.bat")

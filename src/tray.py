@@ -22,43 +22,58 @@ def create_icon_image():
 
 def quit_application(icon):
     """Quit the application properly"""
-    print("[TRAY] Shutting down ConsoleDeck...")
+    print("[TRAY] Shutting down StreamDeck...")
     icon.stop()
     sys.exit(0)
 
 def create_tray_icon(config_callback):
     """Create and run the system tray icon"""
-    def run_config():
-        """Run the config GUI in a separate thread"""
+    def run_preferences():
+        """Run the button preferences GUI in a separate thread"""
         config_thread = threading.Thread(target=config_callback, daemon=True)
         config_thread.start()
     
-    def reload_pref():
-        """Manually reload configuration"""
+    def open_gpio_settings():
+        """Open GPIO configuration GUI in a separate thread"""
+        def run_gpio_gui():
+            try:
+                from gpioController import open_gpio_config_gui
+                open_gpio_config_gui()
+            except Exception as e:
+                print(f"[TRAY ERROR] Failed to open GPIO settings GUI: {e}")
+        
+        gpio_thread = threading.Thread(target=run_gpio_gui, daemon=True)
+        gpio_thread.start()
+        print("[TRAY] Opening GPIO settings GUI...")
+    
+    def reload_configurations():
+        """Manually reload both button preferences and GPIO configuration"""
         try:
             from gpio import signal_config_reload
             signal_config_reload()
-            print("[TRAY] Manual config reload requested")
+            print("[TRAY] Configuration reload requested")
         except Exception as e:
-            print(f"[TRAY ERROR] Failed to reload config: {e}")
+            print(f"[TRAY ERROR] Failed to reload configuration: {e}")
     
     # Create the icon image
     image = create_icon_image()
     
     # Create the menu
     menu = pystray.Menu(
-        pystray.MenuItem("Open Configuration", run_config),
-        pystray.MenuItem("Reload Config", reload_pref),
+        pystray.MenuItem("Button Preferences", run_preferences),
+        pystray.MenuItem("GPIO Settings", open_gpio_settings),
+        #pystray.Menu.SEPARATOR,
+        #pystray.MenuItem("Reload Configuration", reload_configurations),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("Quit", quit_application)
     )
     
     # Create and run the tray icon
-    icon = pystray.Icon("ConsoleDeck", image, "ConsoleDeck V2", menu)
+    icon = pystray.Icon("StreamDeck", image, "StreamDeck V2", menu)
     
-    print("[TRAY] ConsoleDeck V2 started in system tray")
+    print("[TRAY] StreamDeck V2 started in system tray")
     try:
-        icon.notify("ConsoleDeck V2 is running", "Right-click the tray icon for options")
+        icon.notify("StreamDeck V2 is running", "Right-click the tray icon for options")
     except:
         pass  # Notifications might not be supported on all systems
     

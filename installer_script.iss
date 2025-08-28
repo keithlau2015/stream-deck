@@ -1,17 +1,17 @@
 [Setup]
-AppName=ConsoleDeck
+AppName=StreamDeck
 AppVersion=2.0
-AppPublisher=ConsoleDeck Team
+AppPublisher=StreamDeck Team
 AppPublisherURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppSupportURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppUpdatesURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
-DefaultDirName={autopf}\ConsoleDeck
-DefaultGroupName=ConsoleDeck
+DefaultDirName={autopf}\StreamDeck
+DefaultGroupName=StreamDeck
 AllowNoIcons=yes
 LicenseFile=LICENSE.txt
 OutputDir=installer
-OutputBaseFilename=ConsoleDeck_Setup
+OutputBaseFilename=StreamDeck_Setup
 SetupIconFile=icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -26,12 +26,12 @@ DisableDirPage=no
 DisableReadyPage=no
 DisableFinishedPage=no
 ShowLanguageDialog=no
-UninstallDisplayIcon={app}\ConsoleDeck.exe
-UninstallDisplayName=ConsoleDeck
+UninstallDisplayIcon={app}\StreamDeck.exe
+UninstallDisplayName=StreamDeck
 VersionInfoVersion=2.0.0.0
-VersionInfoCompany=ConsoleDeck Team
-VersionInfoDescription=ConsoleDeck - Customizable Macro Deck
-VersionInfoCopyright=© 2024 ConsoleDeck Team
+VersionInfoCompany=StreamDeck Team
+VersionInfoDescription=StreamDeck - Customizable Macro Deck
+VersionInfoCopyright=© 2024 StreamDeck Team
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -39,10 +39,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
-Name: "startup"; Description: "Start ConsoleDeck when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
+Name: "startup"; Description: "Start StreamDeck when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
 
 [Files]
-Source: "dist\ConsoleDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\StreamDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "src\gpio_config.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "src\pref.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "console_deck_v2_arduino_code\*"; DestDir: "{app}\arduino_code"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -50,19 +50,19 @@ Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\ConsoleDeck"; Filename: "{app}\ConsoleDeck.exe"; IconFilename: "{app}\ConsoleDeck.exe"
-Name: "{group}\Configure GPIO"; Filename: "{app}\ConsoleDeck.exe"; Parameters: "--config-gpio"; IconFilename: "{app}\ConsoleDeck.exe"
-Name: "{group}\Readme"; Filename: "{app}\README.md"; IconFilename: "{app}\ConsoleDeck.exe"
-Name: "{group}\Uninstall ConsoleDeck"; Filename: "{uninstallexe}"; IconFilename: "{uninstallexe}"
-Name: "{autodesktop}\ConsoleDeck"; Filename: "{app}\ConsoleDeck.exe"; Tasks: desktopicon; IconFilename: "{app}\ConsoleDeck.exe"
-Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\ConsoleDeck"; Filename: "{app}\ConsoleDeck.exe"; Tasks: quicklaunchicon; IconFilename: "{app}\ConsoleDeck.exe"
+Name: "{group}\StreamDeck"; Filename: "{app}\StreamDeck.exe"; IconFilename: "{app}\StreamDeck.exe"
+Name: "{group}\Configure GPIO"; Filename: "{app}\StreamDeck.exe"; Parameters: "--config-gpio"; IconFilename: "{app}\StreamDeck.exe"
+Name: "{group}\Readme"; Filename: "{app}\README.md"; IconFilename: "{app}\StreamDeck.exe"
+Name: "{group}\Uninstall StreamDeck"; Filename: "{uninstallexe}"; IconFilename: "{uninstallexe}"
+Name: "{autodesktop}\StreamDeck"; Filename: "{app}\StreamDeck.exe"; Tasks: desktopicon; IconFilename: "{app}\StreamDeck.exe"
+Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\StreamDeck"; Filename: "{app}\StreamDeck.exe"; Tasks: quicklaunchicon; IconFilename: "{app}\StreamDeck.exe"
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ConsoleDeck"; ValueData: """{app}\ConsoleDeck.exe"""; Flags: uninsdeletevalue; Tasks: startup
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "StreamDeck"; ValueData: """{app}\StreamDeck.exe"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
-Filename: "{app}\ConsoleDeck.exe"; Description: "{cm:LaunchProgram,ConsoleDeck}"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\ConsoleDeck.exe"; Parameters: "--config-gpio"; Description: "Configure GPIO Settings"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\StreamDeck.exe"; Description: "{cm:LaunchProgram,StreamDeck}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\StreamDeck.exe"; Parameters: "--config-gpio"; Description: "Configure GPIO Settings"; Flags: nowait postinstall skipifsilent
 
 [Code]
 var
@@ -82,8 +82,8 @@ procedure InitializeWizard;
 begin
   // Create welcome page with custom message
   WelcomePage := CreateOutputMsgPage(wpWelcome,
-    'Welcome to ConsoleDeck Setup', 'This will install ConsoleDeck on your computer.',
-    'ConsoleDeck is a customizable macro deck that allows you to configure up to 9 buttons to launch websites or executable files with a click.' + #13#10 + #13#10 +
+    'Welcome to StreamDeck Setup', 'This will install StreamDeck on your computer.',
+    'StreamDeck is a customizable macro deck that allows you to configure up to 9 buttons to launch websites or executable files with a click.' + #13#10 + #13#10 +
     'Features:' + #13#10 +
     '• System tray integration' + #13#10 +
     '• Arduino hardware support' + #13#10 +
@@ -94,7 +94,7 @@ begin
   // Create GPIO configuration page
   ConfigPage := CreateInputQueryPage(wpWelcome,
     'GPIO Configuration', 'Configure your Arduino connection settings',
-    'Please specify the Arduino connection settings. You can change these later by running ConsoleDeck with --config-gpio parameter.');
+    'Please specify the Arduino connection settings. You can change these later by running StreamDeck with --config-gpio parameter.');
     
   ConfigPage.Add('Arduino COM Port (e.g., COM3, COM7):', False);
   ConfigPage.Add('Baud Rate (default: 9600):', False);

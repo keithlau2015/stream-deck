@@ -158,7 +158,7 @@ cython_debug/
 #  project, it is recommended to ignore the whole idea folder.
 .idea/
 
-# ConsoleDeck specific build artifacts
+# StreamDeck specific build artifacts
 dist/
 build/
 installer/
@@ -174,7 +174,7 @@ pref.json
 !pref_template.json
 
 # PyInstaller spec files (auto-generated)
-ConsoleDeck.spec
+StreamDeck.spec
 
 # Windows specific
 Thumbs.db

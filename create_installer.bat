@@ -1,5 +1,5 @@
 @echo off
-echo ConsoleDeck Installer Creator
+echo StreamDeck Installer Creator
 echo =============================
 echo.
 
@@ -59,12 +59,12 @@ exit /b 1
 :found_inno
 echo.
 
-echo Building ConsoleDeck executable...
+echo Building StreamDeck executable...
 REM First install dependencies
 py -m pip install -r src/requirements.txt
 
 REM Build using PyInstaller
-py -m PyInstaller --onefile --windowed --name=ConsoleDeck --add-data="src/gpio_config.json;." --add-data="src/pref.json;." --add-data="console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
+py -m PyInstaller --onefile --windowed --name=StreamDeck --add-data="src/gpio_config.json;." --add-data="src/pref.json;." --add-data="console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
 
 if errorlevel 1 (
     echo.
@@ -93,7 +93,7 @@ echo Installer created successfully!
 echo ========================================
 echo.
 echo Generated files:
-echo   - installer\ConsoleDeck_Setup.exe (main installer)
+echo   - installer\StreamDeck_Setup.exe (main installer)
 echo.
 echo The installer includes:
 echo   - Modern wizard interface
@@ -103,6 +103,6 @@ echo   - Desktop and start menu shortcuts
 echo   - Startup option
 echo   - Proper uninstaller
 echo.
-echo Users can now run ConsoleDeck_Setup.exe to install ConsoleDeck!
+echo Users can now run StreamDeck_Setup.exe to install StreamDeck!
 echo.
 pause
