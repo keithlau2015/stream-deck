@@ -203,7 +203,7 @@ def signal_config_reload():
 def listen_serial_with_reload():
     """Enhanced serial listener that can reload config when signaled"""
     global current_config, config_reload_event
-    from configController import load_pref
+    from prefController import load_pref
     
     # Load initial config
     current_config = load_pref()

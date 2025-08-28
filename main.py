@@ -1,5 +1,5 @@
 from gpio import listen_serial, select_button, get_selected_button, deselect_button
-from configController import load_pref, save_pref
+from prefController import load_pref, save_pref
 from gui import init_pygame, draw_buttons, find_button_click
 import pygame
 import pyperclip
