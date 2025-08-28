@@ -14,6 +14,9 @@ pyperclip>=1.8.0
 # Serial Communication (Arduino)
 pyserial>=3.5
 
+# Build tool
+pyinstaller>=5.0.0
+
 # Additional utilities that may be needed
 # Note: tkinter, webbrowser, subprocess, json, os, sys, time, ctypes, threading
 # are part of Python standard library and don't need to be installed
