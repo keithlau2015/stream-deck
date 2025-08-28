@@ -1,11 +1,11 @@
 {
   "BUTTON_1": {
     "type": "link",
-    "value": "https://www.youtube.it"
+    "value": "https://www.youtube.com/watch?v=AAKsl8zW-Ds"
   },
   "BUTTON_2": {
-    "type": "none",
-    "value": ""
+    "type": "link",
+    "value": "C:/Program Files/Bambu Studio/bambu-studio.exe"
   },
   "BUTTON_3": {
     "type": "none",
