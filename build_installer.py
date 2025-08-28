@@ -20,13 +20,6 @@ def check_dependencies():
     except ImportError:
         print("✗ PyInstaller not found. Installing...")
         subprocess.run([sys.executable, "-m", "pip", "install", "pyinstaller"])
-    
-    try:
-        import inno_setup_compiler
-        print("✓ Inno Setup Compiler found")
-    except ImportError:
-        print("✗ Inno Setup Compiler not found. Installing...")
-        subprocess.run([sys.executable, "-m", "pip", "install", "inno-setup-compiler"])
 
 def create_gpio_config_template():
     """Create a template GPIO configuration file"""
@@ -64,10 +57,11 @@ def build_executable():
         "--onefile",
         "--windowed",
         "--name=ConsoleDeck",
-        "--add-data=gpio_config_template.json;.",
-        "--add-data=config.json;.",
+        "--add-data=src/gpio_config.json;.",
+        "--add-data=src/pref.json;.",
+        "--add-data=console_deck_v2_arduino_code;console_deck_v2_arduino_code",
         "--icon=icon.ico",  # You can add an icon file later
-        "main.py"
+        "src/main.py"
     ]
     
     # Remove --windowed if you want console output
@@ -84,6 +78,32 @@ def build_executable():
         print(result.stderr)
         return False
 
+def find_inno_setup():
+    """Find Inno Setup installation"""
+    possible_paths = [
+        r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        r"C:\Program Files\Inno Setup 6\ISCC.exe",
+        r"C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
+        r"C:\Program Files\Inno Setup 5\ISCC.exe"
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path):
+            return path
+    
+    # Try to find via registry
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Inno Setup 6_is1")
+        install_location = winreg.QueryValueEx(key, "InstallLocation")[0]
+        iscc_path = os.path.join(install_location, "ISCC.exe")
+        if os.path.exists(iscc_path):
+            return iscc_path
+    except:
+        pass
+    
+    return None
+
 def create_installer_script():
     """Create Inno Setup script for the installer"""
     script = """[Setup]
@@ -93,6 +113,7 @@ AppPublisher=ConsoleDeck Team
 AppPublisherURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppSupportURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppUpdatesURL=https://github.com/LucaDiLorenzo98/cd_v2_script
+AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 DefaultDirName={autopf}\\ConsoleDeck
 DefaultGroupName=ConsoleDeck
 AllowNoIcons=yes
@@ -100,9 +121,25 @@ LicenseFile=LICENSE.txt
 OutputDir=installer
 OutputBaseFilename=ConsoleDeck_Setup
 SetupIconFile=icon.ico
-Compression=lzma
+Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+WizardImageFile=installer_image.bmp
+WizardSmallImageFile=installer_small.bmp
+PrivilegesRequired=lowest
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+DisableProgramGroupPage=yes
+DisableDirPage=no
+DisableReadyPage=no
+DisableFinishedPage=no
+ShowLanguageDialog=no
+UninstallDisplayIcon={app}\\ConsoleDeck.exe
+UninstallDisplayName=ConsoleDeck
+VersionInfoVersion=2.0.0.0
+VersionInfoCompany=ConsoleDeck Team
+VersionInfoDescription=ConsoleDeck - Customizable Macro Deck
+VersionInfoCopyright=© 2024 ConsoleDeck Team
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -110,11 +147,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "quicklaunchicon"; Description: "{cm:CreateQuickLaunchIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; OnlyBelowVersion: 6.1; Check: not IsAdminInstallMode
+Name: "startup"; Description: "Start ConsoleDeck when Windows starts"; GroupDescription: "Startup Options"; Flags: unchecked
 
 [Files]
 Source: "dist\\ConsoleDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "gpio_config_template.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "config.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "src\\pref.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "console_deck_v2_arduino_code\\*"; DestDir: "{app}\\arduino_code"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -124,6 +162,9 @@ Name: "{group}\\Configure GPIO"; Filename: "{app}\\ConsoleDeck.exe"; Parameters:
 Name: "{group}\\Uninstall ConsoleDeck"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\\ConsoleDeck"; Filename: "{app}\\ConsoleDeck.exe"; Tasks: desktopicon
 Name: "{userappdata}\\Microsoft\\Internet Explorer\\Quick Launch\\ConsoleDeck"; Filename: "{app}\\ConsoleDeck.exe"; Tasks: quicklaunchicon
+
+[Registry]
+Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "ConsoleDeck"; ValueData: """{app}\\ConsoleDeck.exe"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
 Filename: "{app}\\ConsoleDeck.exe"; Description: "{cm:LaunchProgram,ConsoleDeck}"; Flags: nowait postinstall skipifsilent
@@ -161,23 +202,23 @@ begin
     
     // Create gpio_config.json
     ConfigFile := ExpandConstant('{app}\\gpio_config.json');
-    ConfigContent := '{\n' +
-      '    "arduino": {\n' +
-      '        "port": "' + ArduinoPort + '",\n' +
-      '        "baudrate": ' + BaudRate + ',\n' +
-      '        "timeout": 1\n' +
-      '    },\n' +
-      '    "volume": {\n' +
-      '        "enabled": true,\n' +
-      '        "default_value": 0\n' +
-      '    },\n' +
-      '    "media": {\n' +
-      '        "enabled": true\n' +
-      '    },\n' +
-      '    "debug": {\n' +
-      '        "enabled": true,\n' +
-      '        "log_level": "INFO"\n' +
-      '    }\n' +
+    ConfigContent := '{\\n' +
+      '    "arduino": {\\n' +
+      '        "port": "' + ArduinoPort + '",\\n' +
+      '        "baudrate": ' + BaudRate + ',\\n' +
+      '        "timeout": 1\\n' +
+      '    },\\n' +
+      '    "volume": {\\n' +
+      '        "enabled": true,\\n' +
+      '        "default_value": 0\\n' +
+      '    },\\n' +
+      '    "media": {\\n' +
+      '        "enabled": true\\n' +
+      '    },\\n' +
+      '    "debug": {\\n' +
+      '        "enabled": true,\\n' +
+      '        "log_level": "INFO"\\n' +
+      '    }\\n' +
       '}';
     
     SaveStringToFile(ConfigFile, ConfigContent, False);
@@ -207,7 +248,7 @@ echo.
 REM Copy files
 copy "dist\\ConsoleDeck.exe" "%INSTALL_DIR%\\"
 copy "gpio_config_template.json" "%INSTALL_DIR%\\"
-copy "config.json" "%INSTALL_DIR%\\"
+copy "src\\pref.json" "%INSTALL_DIR%\\"
 if exist "console_deck_v2_arduino_code" xcopy "console_deck_v2_arduino_code" "%INSTALL_DIR%\\arduino_code\\" /E /I /Y
 copy "README.md" "%INSTALL_DIR%\\"
 
@@ -286,6 +327,26 @@ def main():
     create_installer_script()
     create_simple_installer()
     
+    # Try to create professional installer
+    iscc_path = find_inno_setup()
+    if iscc_path:
+        print(f"\n🔨 Creating professional installer with Inno Setup...")
+        print(f"Found Inno Setup at: {iscc_path}")
+        
+        result = subprocess.run([iscc_path, "installer_script.iss"], capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("✓ Professional installer created successfully!")
+            print("  - installer/ConsoleDeck_Setup.exe")
+        else:
+            print("✗ Professional installer creation failed:")
+            print(result.stderr)
+            print("\nUsing simple batch installer instead...")
+    else:
+        print("\n⚠️  Inno Setup not found. Using simple batch installer.")
+        print("To create a professional installer, install Inno Setup from:")
+        print("https://jrsoftware.org/isdl.php")
+    
     print("\n🎉 Build completed successfully!")
     print("\nGenerated files:")
     print("  - dist/ConsoleDeck.exe (main executable)")
@@ -293,16 +354,14 @@ def main():
     print("  - install.bat (simple batch installer)")
     print("  - gpio_config_template.json (configuration template)")
     
-    print("\nNext steps:")
-    print("1. Install Inno Setup from: https://jrsoftware.org/isdl.php")
-    print("2. Compile installer_script.iss with Inno Setup Compiler")
-    print("3. Or use install.bat for simple installation")
-    
-    print("\nThe installer will:")
-    print("  - Install ConsoleDeck to Program Files")
-    print("  - Create desktop and start menu shortcuts")
-    print("  - Configure GPIO settings during installation")
-    print("  - Allow users to customize Arduino connection")
+    if iscc_path:
+        print("\nProfessional installer created:")
+        print("  - installer/ConsoleDeck_Setup.exe")
+        print("\nUsers can run ConsoleDeck_Setup.exe for a professional installation experience!")
+    else:
+        print("\nSimple installer available:")
+        print("  - install.bat")
+        print("\nUsers can run install.bat for a simple installation.")
 
 if __name__ == "__main__":
     main()
