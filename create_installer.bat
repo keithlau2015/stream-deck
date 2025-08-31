@@ -64,7 +64,7 @@ REM First install dependencies
 py -m pip install -r src/requirements.txt
 
 REM Build using PyInstaller
-py -m PyInstaller --onefile --windowed --name=StreamDeck --add-data="src/gpio_config.json;." --add-data="src/pref.json;." --add-data="console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
+py -m PyInstaller --onefile --windowed --name=StreamDeck --add-data="src/console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
 
 if errorlevel 1 (
     echo.

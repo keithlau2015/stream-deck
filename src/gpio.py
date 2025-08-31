@@ -6,9 +6,20 @@ import ctypes
 import os
 import json
 import threading
+import sys
+
+def get_app_data_dir():
+    """Get the directory where the application should store its data files"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        app_dir = os.path.dirname(sys.executable)
+    else:
+        # Running as script
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+    return app_dir
 
 # Configuration file path
-GPIO_CONFIG_FILE = "gpio_config.json"
+GPIO_CONFIG_FILE = os.path.join(get_app_data_dir(), "gpio_config.json")
 
 # Default configuration values
 DEFAULT_CONFIG = {
@@ -19,7 +30,7 @@ DEFAULT_CONFIG = {
     },
     "volume": {
         "enabled": True,
-        "default_value": 0
+        "default_value": gs
     },
     "media": {
         "enabled": True
@@ -213,6 +224,37 @@ def signal_config_reload():
     config_reload_event.set()
     print("[GPIO] Config reload signal sent")
 
+def signal_gpio_reload():
+    """Signal the serial thread to reload GPIO configuration immediately"""
+    global gpio_reload_event
+    print("[GPIO] signal_gpio_reload() called")
+    
+    # Print current settings before reload
+    print(f"[GPIO] Before reload - Debug: {DEBUG_ENABLED}, Volume: {VOLUME_ENABLED}, Media: {MEDIA_ENABLED}")
+    
+    # First reload the GPIO config in this thread to update global variables
+    if reload_gpio_config():
+        print("[GPIO] GPIO configuration reloaded immediately")
+        # Print current settings after reload
+        print(f"[GPIO] After reload - Debug: {DEBUG_ENABLED}, Volume: {VOLUME_ENABLED}, Media: {MEDIA_ENABLED}")
+        # Only signal reconnection if Arduino settings actually changed
+        # (gpio_reload_event will be set by reload_gpio_config if needed)
+    else:
+        # If reload failed, still try to signal
+        print("[GPIO] GPIO config reload failed, signaling anyway")
+        gpio_reload_event.set()
+    print("[GPIO] GPIO reload signal sent")
+
+def get_current_gpio_settings():
+    """Get current GPIO settings (for debugging/status)"""
+    return {
+        "arduino_port": ARDUINO_PORT,
+        "arduino_baudrate": BAUDRATE,
+        "volume_enabled": VOLUME_ENABLED,
+        "media_enabled": MEDIA_ENABLED,
+        "debug_enabled": DEBUG_ENABLED
+    }
+
 def listen_serial_with_reload():
     """Enhanced serial listener that can reload config when signaled"""
     global current_config, config_reload_event, gpio_reload_event
@@ -229,45 +271,44 @@ def listen_serial_with_reload():
                 print(f"[GPIO] Connected to {ARDUINO_PORT}")
                 
                 while True:
-                    # Check if GPIO reload was requested (connection settings changed)
+                    # Check if GPIO reload was requested (Arduino connection settings changed)
                     if gpio_reload_event.is_set():
                         gpio_reload_event.clear()
                         print(f"[GPIO] GPIO settings changed - reconnecting...")
                         break  # Break out of serial loop to reconnect with new settings
                     
-                    # Check if config reload was requested
+                    # Check if button config reload was requested (from GUI)
                     if config_reload_event.is_set():
                         current_config = load_pref()
                         config_reload_event.clear()
-                        print(f"[GPIO] Config reloaded! {len(current_config)} buttons configured")
+                        print(f"[GPIO] Button config reloaded! {len(current_config)} buttons configured")
                         
-                        # Also reload GPIO config if requested
-                        if reload_gpio_config():
-                            print(f"[GPIO] GPIO configuration also reloaded")
-                            # Check if GPIO reload event was set during reload
-                            if gpio_reload_event.is_set():
-                                gpio_reload_event.clear()
-                                print(f"[GPIO] GPIO settings changed during reload - reconnecting...")
-                                break  # Break out to reconnect
+                        # Note: GPIO config should already be reloaded by signal_gpio_reload()
+                        # when GPIO settings are saved, so we don't need to reload it here
                     
                     # Read serial data with timeout
                     line = ser.readline().decode('utf-8').strip()
                     if line:
-                        if DEBUG_ENABLED:
+                        # Always get current GPIO settings to ensure we have the latest values
+                        current_debug = gpio_config.get("debug", {}).get("enabled", True)
+                        current_volume = gpio_config.get("volume", {}).get("enabled", True)
+                        current_media = gpio_config.get("media", {}).get("enabled", True)
+                        
+                        if current_debug:
                             print("[GPIO] Received:", line)
-                        if line.startswith("VOLUME_") and VOLUME_ENABLED:
+                        if line.startswith("VOLUME_") and current_volume:
                             value = line.replace("VOLUME_", "")
                             handle_volume(value)
-                        elif line == "MUTE" and VOLUME_ENABLED:
+                        elif line == "MUTE" and current_volume:
                             handle_mute()
-                        elif line == "MEDIA" and MEDIA_ENABLED:
+                        elif line == "MEDIA" and current_media:
                             handle_media()
                         elif line in current_config:
-                            if DEBUG_ENABLED:
+                            if current_debug:
                                 print(f"[GPIO] Executing action for {line}")
                             execute_action(current_config[line])
                         else:
-                            if DEBUG_ENABLED:
+                            if current_debug:
                                 print(f"[GPIO] No action configured for: {line}")
                             
         except Exception as e:

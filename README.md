@@ -73,7 +73,7 @@ python src/main.py
 
 2. **Build the executable:**
    ```bash
-   pyinstaller --onefile --windowed --name=StreamDeck --add-data="src/gpio_config.json;." --add-data="src/pref.json;." --add-data="console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
+   pyinstaller --onefile --windowed --name=StreamDeck --add-data="src/console_deck_v2_arduino_code;console_deck_v2_arduino_code" src/main.py
    ```
 
 3. **Find the executable:**

@@ -28,10 +28,33 @@ def quit_application(icon):
 
 def create_tray_icon(config_callback):
     """Create and run the system tray icon"""
+    # Track if GUI is currently running to prevent multiple instances
+    gui_running = {"value": False}
+    
     def run_preferences():
         """Run the button preferences GUI in a separate thread"""
-        config_thread = threading.Thread(target=config_callback, daemon=True)
-        config_thread.start()
+        if gui_running["value"]:
+            print("[TRAY] Button preferences GUI is already running")
+            return
+            
+        gui_running["value"] = True
+        try:
+            def run_gui_with_cleanup():
+                try:
+                    config_callback()
+                except Exception as e:
+                    print(f"[TRAY ERROR] Failed to run button preferences GUI: {e}")
+                    import traceback
+                    traceback.print_exc()
+                finally:
+                    gui_running["value"] = False
+                    print("[TRAY] Button preferences GUI closed")
+            
+            config_thread = threading.Thread(target=run_gui_with_cleanup, daemon=False)
+            config_thread.start()
+        except Exception as e:
+            gui_running["value"] = False
+            print(f"[TRAY ERROR] Failed to start button preferences GUI thread: {e}")
     
     def open_gpio_settings():
         """Open GPIO configuration GUI in a separate thread"""

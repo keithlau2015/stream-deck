@@ -12,12 +12,12 @@ AllowNoIcons=yes
 LicenseFile=LICENSE.txt
 OutputDir=installer
 OutputBaseFilename=StreamDeck_Setup
-SetupIconFile=icon.ico
+SetupIconFile=assets/icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
-WizardImageFile=installer_image.bmp
-WizardSmallImageFile=installer_small.bmp
+WizardImageFile=assets/installer_image.bmp
+WizardSmallImageFile=assets/installer_small.bmp
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
@@ -43,9 +43,7 @@ Name: "startup"; Description: "Start StreamDeck when Windows starts"; GroupDescr
 
 [Files]
 Source: "dist\StreamDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "src\gpio_config.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "src\pref.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "console_deck_v2_arduino_code\*"; DestDir: "{app}\arduino_code"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "src\console_deck_v2_arduino_code\*"; DestDir: "{app}\arduino_code"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
 
@@ -62,7 +60,6 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\StreamDeck.exe"; Description: "{cm:LaunchProgram,StreamDeck}"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\StreamDeck.exe"; Parameters: "--config-gpio"; Description: "Configure GPIO Settings"; Flags: nowait postinstall skipifsilent
 
 [Code]
 var
@@ -78,6 +75,14 @@ var
   MediaCheckBox: TCheckBox;
   DebugCheckBox: TCheckBox;
 
+function GetBooleanString(Value: Boolean): String;
+begin
+  if Value then
+    Result := 'true'
+  else
+    Result := 'false';
+end;
+
 procedure InitializeWizard;
 begin
   // Create welcome page with custom message
@@ -92,9 +97,9 @@ begin
     'Click Next to continue with the installation.');
 
   // Create GPIO configuration page
-  ConfigPage := CreateInputQueryPage(wpWelcome,
+  ConfigPage := CreateInputQueryPage(wpSelectDir,
     'GPIO Configuration', 'Configure your Arduino connection settings',
-    'Please specify the Arduino connection settings. You can change these later by running StreamDeck with --config-gpio parameter.');
+    'Please specify the Arduino connection settings. You can change these later by opening GPIO Settings from the system tray.');
     
   ConfigPage.Add('Arduino COM Port (e.g., COM3, COM7):', False);
   ConfigPage.Add('Baud Rate (default: 9600):', False);
@@ -102,39 +107,51 @@ begin
   // Set default values
   ConfigPage.Values[0] := 'COM7';
   ConfigPage.Values[1] := '9600';
+    
+  // We'll create all the controls manually in CreateConfigControls procedure
 end;
 
-procedure CreateConfigCheckBoxes;
+procedure CreateConfigControls;
 var
-  ConfigLabel: TLabel;
+  FeaturesLabel: TLabel;
+  CurrentTop: Integer;
 begin
-  // Create label for feature configuration
-  ConfigLabel := TLabel.Create(ConfigPage);
-  ConfigLabel.Parent := ConfigPage.Surface;
-  ConfigLabel.Left := ConfigPage.Edits[0].Left;
-  ConfigLabel.Top := ConfigPage.Edits[1].Top + ConfigPage.Edits[1].Height + 20;
-  ConfigLabel.Caption := 'Enable Features:';
-  ConfigLabel.Font.Style := [fsBold];
+  // Position checkboxes below the existing input fields with more spacing
+  CurrentTop := ConfigPage.Edits[1].Top + ConfigPage.Edits[1].Height + 30;
+  
+  // Create features label
+  FeaturesLabel := TLabel.Create(ConfigPage);
+  FeaturesLabel.Parent := ConfigPage.Surface;
+  FeaturesLabel.Left := ConfigPage.Edits[0].Left;
+  FeaturesLabel.Top := CurrentTop;
+  FeaturesLabel.Caption := 'Enable Features:';
+  FeaturesLabel.Font.Style := [fsBold];
+  CurrentTop := CurrentTop + 25;
   
   // Create checkboxes for feature configuration
   VolumeCheckBox := TCheckBox.Create(ConfigPage);
   VolumeCheckBox.Parent := ConfigPage.Surface;
   VolumeCheckBox.Left := ConfigPage.Edits[0].Left;
-  VolumeCheckBox.Top := ConfigLabel.Top + ConfigLabel.Height + 10;
+  VolumeCheckBox.Top := CurrentTop;
+  VolumeCheckBox.Width := ConfigPage.SurfaceWidth - 40;
   VolumeCheckBox.Caption := 'Enable Volume Control';
   VolumeCheckBox.Checked := True;
+  CurrentTop := CurrentTop + 25;
   
   MediaCheckBox := TCheckBox.Create(ConfigPage);
   MediaCheckBox.Parent := ConfigPage.Surface;
   MediaCheckBox.Left := ConfigPage.Edits[0].Left;
-  MediaCheckBox.Top := VolumeCheckBox.Top + VolumeCheckBox.Height + 5;
+  MediaCheckBox.Top := CurrentTop;
+  MediaCheckBox.Width := ConfigPage.SurfaceWidth - 40;
   MediaCheckBox.Caption := 'Enable Media Controls';
   MediaCheckBox.Checked := True;
+  CurrentTop := CurrentTop + 25;
   
   DebugCheckBox := TCheckBox.Create(ConfigPage);
   DebugCheckBox.Parent := ConfigPage.Surface;
   DebugCheckBox.Left := ConfigPage.Edits[0].Left;
-  DebugCheckBox.Top := MediaCheckBox.Top + MediaCheckBox.Height + 5;
+  DebugCheckBox.Top := CurrentTop;
+  DebugCheckBox.Width := ConfigPage.SurfaceWidth - 40;
   DebugCheckBox.Caption := 'Enable Debug Logging';
   DebugCheckBox.Checked := True;
 end;
@@ -143,7 +160,7 @@ procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = ConfigPage.ID then
   begin
-    CreateConfigCheckBoxes;
+    CreateConfigControls;
   end;
 end;
 
@@ -153,6 +170,7 @@ begin
   
   if CurPageID = ConfigPage.ID then
   begin
+    // Get values from input query page
     ArduinoPort := ConfigPage.Values[0];
     BaudRate := ConfigPage.Values[1];
     VolumeEnabled := VolumeCheckBox.Checked;
@@ -193,14 +211,14 @@ begin
       '        "timeout": 1' + #13#10 +
       '    },' + #13#10 +
       '    "volume": {' + #13#10 +
-      '        "enabled": true,' + #13#10 +
+      '        "enabled": ' + GetBooleanString(VolumeEnabled) + ',' + #13#10 +
       '        "default_value": 0' + #13#10 +
       '    },' + #13#10 +
       '    "media": {' + #13#10 +
-      '        "enabled": true' + #13#10 +
+      '        "enabled": ' + GetBooleanString(MediaEnabled) + #13#10 +
       '    },' + #13#10 +
       '    "debug": {' + #13#10 +
-      '        "enabled": true,' + #13#10 +
+      '        "enabled": ' + GetBooleanString(DebugEnabled) + ',' + #13#10 +
       '        "log_level": "INFO"' + #13#10 +
       '    }' + #13#10 +
       '}';

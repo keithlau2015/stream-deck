@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-StreamDeck Installer Builder
-This script builds the StreamDeck executable using PyInstaller and creates an installer.
+ConsoleDeck Installer Builder
+This script builds the ConsoleDeck executable using PyInstaller and creates an installer.
 """
 
 import os
@@ -57,10 +57,8 @@ def build_executable():
         "--onefile",
         "--windowed",
         "--name=StreamDeck",
-        "--add-data=src/gpio_config.json;.",
-        "--add-data=src/pref.json;.",
-        "--add-data=console_deck_v2_arduino_code;console_deck_v2_arduino_code",
-        "--icon=icon.ico",  # You can add an icon file later
+        "--add-data=src/console_deck_v2_arduino_code;console_deck_v2_arduino_code",
+        "--icon=assets/icon.ico",
         "src/main.py"
     ]
     
@@ -109,7 +107,7 @@ def create_installer_script():
     script = """[Setup]
 AppName=StreamDeck
 AppVersion=2.0
-AppPublisher=StreamDeck Team
+AppPublisher=Null Point Interactive Team
 AppPublisherURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppSupportURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppUpdatesURL=https://github.com/LucaDiLorenzo98/cd_v2_script
@@ -137,9 +135,9 @@ ShowLanguageDialog=no
 UninstallDisplayIcon={app}\\StreamDeck.exe
 UninstallDisplayName=StreamDeck
 VersionInfoVersion=2.0.0.0
-VersionInfoCompany=StreamDeck Team
+VersionInfoCompany=Null Point Interactive Team
 VersionInfoDescription=StreamDeck - Customizable Macro Deck
-VersionInfoCopyright=© 2024 StreamDeck Team
+VersionInfoCopyright=© 2024 Null Point Interactive Team
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -248,8 +246,8 @@ echo.
 REM Copy files
 copy "dist\\StreamDeck.exe" "%INSTALL_DIR%\\"
 copy "gpio_config_template.json" "%INSTALL_DIR%\\"
-copy "src\\pref.json" "%INSTALL_DIR%\\"
-if exist "console_deck_v2_arduino_code" xcopy "console_deck_v2_arduino_code" "%INSTALL_DIR%\\arduino_code\\" /E /I /Y
+REM pref.json will be created by the application on first run
+if exist "src\\console_deck_v2_arduino_code" xcopy "src\\console_deck_v2_arduino_code" "%INSTALL_DIR%\\arduino_code\\" /E /I /Y
 copy "README.md" "%INSTALL_DIR%\\"
 
 REM Create gpio_config.json with user input

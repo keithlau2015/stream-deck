@@ -5,8 +5,18 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import sys
 
+def get_app_data_dir():
+    """Get the directory where the application should store its data files"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        app_dir = os.path.dirname(sys.executable)
+    else:
+        # Running as script
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+    return app_dir
+
 # Configuration file path
-GPIO_CONFIG_FILE = "gpio_config.json"
+GPIO_CONFIG_FILE = os.path.join(get_app_data_dir(), "gpio_config.json")
 
 # Default configuration values
 DEFAULT_CONFIG = {
@@ -319,13 +329,20 @@ class GPIOConfigGUI:
         if save_gpio_config(self.config):
             messagebox.showinfo("Success", "Configuration saved successfully!")
             
-            # Trigger GPIO config reload
+            # Trigger immediate GPIO config reload
             try:
-                from gpio import signal_config_reload
-                signal_config_reload()
-                print("[GPIO CONFIG] Reload signal sent to GPIO system")
+                from gpio import signal_gpio_reload, get_current_gpio_settings
+                print(f"[GPIO CONFIG] Triggering GPIO reload...")
+                signal_gpio_reload()
+                print("[GPIO CONFIG] GPIO reload signal sent to GPIO system")
+                
+                # Print current settings for verification
+                settings = get_current_gpio_settings()
+                print(f"[GPIO CONFIG] Current settings: {settings}")
             except Exception as e:
-                print(f"[GPIO CONFIG] Warning: Could not signal reload: {e}")
+                print(f"[GPIO CONFIG] Warning: Could not signal GPIO reload: {e}")
+                import traceback
+                traceback.print_exc()
             
             self.root.destroy()
             return True
