@@ -30,7 +30,7 @@ DEFAULT_CONFIG = {
     },
     "volume": {
         "enabled": True,
-        "default_value": gs
+        "default_value": 0
     },
     "media": {
         "enabled": True
@@ -289,10 +289,10 @@ def listen_serial_with_reload():
                     # Read serial data with timeout
                     line = ser.readline().decode('utf-8').strip()
                     if line:
-                        # Always get current GPIO settings to ensure we have the latest values
-                        current_debug = gpio_config.get("debug", {}).get("enabled", True)
-                        current_volume = gpio_config.get("volume", {}).get("enabled", True)
-                        current_media = gpio_config.get("media", {}).get("enabled", True)
+                        # Cache current GPIO settings to avoid repeated dict lookups
+                        current_debug = DEBUG_ENABLED
+                        current_volume = VOLUME_ENABLED
+                        current_media = MEDIA_ENABLED
                         
                         if current_debug:
                             print("[GPIO] Received:", line)

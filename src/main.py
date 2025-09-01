@@ -28,15 +28,26 @@ def open_gui():
         try:
             init_pygame()
             pygame.key.set_repeat(300, 30)
+            # Add FPS clock for better performance
+            clock = pygame.time.Clock()
+            FPS = 30  # Limit to 30 FPS for better performance
         except Exception as e:
             print(f"[GUI ERROR] Failed to initialize pygame: {e}")
             return
 
         running = True
+        last_selected = None
+        needs_redraw = True
+        
         while running:
             try:
                 selected = get_selected_button()
-                draw_buttons(config, selected)
+                
+                # Only redraw if something changed
+                if selected != last_selected or needs_redraw:
+                    draw_buttons(config, selected)
+                    last_selected = selected
+                    needs_redraw = False
                 
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
@@ -56,6 +67,7 @@ def open_gui():
                             gui.save_enabled = False
                             gui.save_clicked = False
                             deselect_button()
+                            needs_redraw = True
                             break
                         
                         # Click on "Save"
@@ -152,6 +164,9 @@ def open_gui():
                 print(f"[GUI ERROR] Error in main loop: {e}")
                 # Continue running even if there's an error in the loop
                 continue
+            
+            # Limit FPS for better performance
+            clock.tick(FPS)
                 
     except Exception as e:
         print(f"[GUI ERROR] Critical error in GUI: {e}")
