@@ -26,16 +26,21 @@ CONFIG_BTN_SPACING = 20
 CONFIG_INPUT_WIDTH = 540
 CONFIG_INPUT_HEIGHT = 30
 
+# UI state variables - properly initialized
 cancel_button_rect = None
+type_button_rects = {}
+browse_button_rect = None
+save_button_rect = None
+input_rect = None
 
+# Temporary configuration state
 temp_config_type = None
 temp_config_value = None
 
+# UI interaction state
 save_enabled = False
 save_clicked = False
-
 input_active = False
-input_rect = None
 
 # Cursor variables for text input
 cursor_visible = True
@@ -59,6 +64,25 @@ def update_cursor():
         cursor_visible = not cursor_visible
         cursor_timer = current_time
 
+
+def reset_ui_state():
+    """Reset all UI state variables to ensure clean state"""
+    global temp_config_type, temp_config_value, save_enabled, save_clicked, input_active
+    global cancel_button_rect, type_button_rects, browse_button_rect, save_button_rect, input_rect
+    
+    temp_config_type = None
+    temp_config_value = None
+    save_enabled = False
+    save_clicked = False
+    input_active = False
+    
+    cancel_button_rect = None
+    type_button_rects = {}
+    browse_button_rect = None
+    save_button_rect = None
+    input_rect = None
+    
+    print("[GUI DEBUG] UI state reset")
 
 def draw_buttons(config, selected=None):
     """
@@ -280,23 +304,34 @@ def draw_buttons(config, selected=None):
         cancel_rect = cancel_text.get_rect()
         SCREEN.blit(cancel_text, (button_start_x, button_y + (30 - cancel_rect.height) // 2))
 
-        # Save button with hover effect
+        # Save button with improved state handling
         save_rect = pygame.Rect(button_start_x + 100, button_y, 80, 30)
         is_save_hover = save_rect.collidepoint(mouse_pos)
 
+        # Determine save button color based on state
         if save_clicked:
-            color_save = (200, 120, 40)  # standard orange (after click)
+            color_save = (100, 200, 100)  # Green when saving
+            save_text_content = "Saving..."
         elif save_enabled:
             if is_save_hover:
-                color_save = (220, 140, 60)  # Lighter on hover when enabled
+                color_save = (220, 140, 60)  # Lighter orange on hover when enabled
             else:
-                color_save = (200, 120, 40)  # dark orange (modified)
+                color_save = (200, 120, 40)  # Orange when changes detected
+            save_text_content = "Save"
         else:
-            color_save = (100, 100, 100)  # disabled (no hover effect)
+            color_save = (100, 100, 100)  # Gray when disabled
+            save_text_content = "Save"
 
+        # Draw save button background
         pygame.draw.rect(SCREEN, color_save, save_rect, border_radius=5)
+        
+        # Add border to show when button is enabled
+        if save_enabled and not save_clicked:
+            pygame.draw.rect(SCREEN, (255, 255, 255), save_rect, width=1, border_radius=5)
 
-        save_text = SMALL_FONT.render("Save", True, (255, 255, 255))
+        # Render save button text
+        text_color = (255, 255, 255) if save_enabled or save_clicked else (150, 150, 150)
+        save_text = SMALL_FONT.render(save_text_content, True, text_color)
         text_rect = save_text.get_rect(center=save_rect.center)
         SCREEN.blit(save_text, text_rect)
 
@@ -306,15 +341,38 @@ def draw_buttons(config, selected=None):
 
 
 def is_dirty(selected, config):
+    """Check if current button configuration has unsaved changes"""
     global temp_config_type, temp_config_value
+    
     if not selected:
         return False
 
+    # Get current saved configuration
     current = config.get(selected, {"type": "none", "value": ""})
-    button_type = temp_config_type if temp_config_type is not None else current["type"]
-    value = temp_config_value if temp_config_value is not None else current["value"]
-
-    return button_type != current["type"] or value != current["value"]
+    
+    # Get the current temporary state (what user has entered)
+    current_type = temp_config_type if temp_config_type is not None else current.get("type", "none")
+    current_value = temp_config_value if temp_config_value is not None else current.get("value", "")
+    
+    # Normalize values for comparison
+    saved_type = current.get("type", "none")
+    saved_value = current.get("value", "")
+    
+    # Handle None values properly
+    if current_value is None:
+        current_value = ""
+    if saved_value is None:
+        saved_value = ""
+    
+    # Check if there are actual changes
+    type_changed = current_type != saved_type
+    value_changed = str(current_value).strip() != str(saved_value).strip()
+    
+    # Debug logging for troubleshooting
+    if type_changed or value_changed:
+        print(f"[GUI DEBUG] Button {selected} dirty - Type: {saved_type} -> {current_type}, Value: '{saved_value}' -> '{current_value}'")
+    
+    return type_changed or value_changed
 
 
 def find_button_click(mx, my):

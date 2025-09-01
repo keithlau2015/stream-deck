@@ -5,15 +5,20 @@ import pygame
 import pyperclip
 import tray
 import gui
+import os
 
 def open_gui():
     """Open the button preferences GUI with proper error handling and cleanup"""
     try:
         print("[GUI] Starting button preferences GUI...")
         
+        # Reset UI state to ensure clean start
+        gui.reset_ui_state()
+        
         # Load configuration with error handling
         try:
             config = load_pref()
+            print(f"[GUI] Loaded configuration with {len(config)} buttons")
         except Exception as e:
             print(f"[GUI ERROR] Failed to load preferences: {e}")
             return
@@ -57,9 +62,13 @@ def open_gui():
                         mx, my = pygame.mouse.get_pos()
                         # Click inside the URL input field
                         if gui.input_rect and gui.input_rect.collidepoint(mx, my):
-                            gui.input_active = True
+                            if not gui.input_active:
+                                gui.input_active = True
+                                needs_redraw = True
                         else:
-                            gui.input_active = False
+                            if gui.input_active:
+                                gui.input_active = False
+                                needs_redraw = True
                         # Click on "Cancel"
                         if gui.cancel_button_rect and gui.cancel_button_rect.collidepoint(mx, my):
                             gui.temp_config_type = None
@@ -68,36 +77,81 @@ def open_gui():
                             gui.save_clicked = False
                             deselect_button()
                             needs_redraw = True
+                            print("[GUI DEBUG] Configuration cancelled")
                             break
                         
                         # Click on "Save"
-                        if hasattr(gui, "save_button_rect") and gui.save_button_rect.collidepoint(mx, my):
+                        if hasattr(gui, "save_button_rect") and gui.save_button_rect and gui.save_button_rect.collidepoint(mx, my) and gui.save_enabled:
                             try:
+                                # Validate the configuration before saving
+                                new_type = gui.temp_config_type or "none"
+                                new_value = gui.temp_config_value or ""
+                                
+                                # Additional validation for specific types
+                                if new_type == "link" and new_value.strip():
+                                    if not (new_value.startswith("http://") or new_value.startswith("https://")):
+                                        new_value = "https://" + new_value.strip()
+                                elif new_type == "exe" and new_value.strip():
+                                    if not os.path.exists(new_value):
+                                        print(f"[GUI WARNING] Executable file not found: {new_value}")
+                                
+                                # Save the configuration
                                 config[selected] = {
-                                    "type": gui.temp_config_type or "none",
-                                    "value": gui.temp_config_value or ""
+                                    "type": new_type,
+                                    "value": new_value
                                 }
+                                
+                                print(f"[GUI] Saving button {selected}: type={new_type}, value={new_value}")
+                                
+                                # Reset temporary state
                                 gui.temp_config_type = None
                                 gui.temp_config_value = None
                                 gui.save_enabled = False
                                 gui.save_clicked = True
+                                
+                                # Save to file
                                 save_pref(config)
+                                
+                                # Reset clicked state
                                 gui.save_clicked = False
+                                needs_redraw = True
+                                
+                                print(f"[GUI] Button {selected} configuration saved successfully")
+                                
                             except Exception as e:
                                 print(f"[GUI ERROR] Failed to save preferences: {e}")
+                                gui.save_clicked = False
+                                import traceback
+                                traceback.print_exc()
                                 
                         # Click on one of the 3 exclusive buttons (LINK, EXE, NONE)
-                        if selected and hasattr(gui, "type_button_rects"):
+                        if selected and hasattr(gui, "type_button_rects") and gui.type_button_rects:
                             for name, rect in gui.type_button_rects.items():
-                                if rect.collidepoint(mx, my):
+                                if rect and rect.collidepoint(mx, my):
                                     button_type = name.lower()
+                                    old_type = gui.temp_config_type
                                     gui.temp_config_type = button_type
+                                    
+                                    print(f"[GUI DEBUG] Button type changed: {old_type} -> {button_type}")
+                                    
+                                    # Handle value based on button type
                                     if button_type == "none":
                                         gui.temp_config_value = ""
                                     else:
-                                        if gui.temp_config_value is None:
-                                            gui.temp_config_value = config[selected].get("value", "")
+                                        # If switching from a different type or this is the first selection
+                                        if gui.temp_config_value is None or old_type != button_type:
+                                            # Load existing value from config if available
+                                            current_config = config.get(selected, {"type": "none", "value": ""})
+                                            if current_config.get("type") == button_type:
+                                                gui.temp_config_value = current_config.get("value", "")
+                                            else:
+                                                gui.temp_config_value = ""
+                                    
+                                    # Update save button state
                                     gui.save_enabled = gui.is_dirty(selected, config)
+                                    needs_redraw = True
+                                    
+                                    print(f"[GUI DEBUG] Save enabled: {gui.save_enabled}")
                                     break
                                 
                         # Click on "Browse"
@@ -117,6 +171,8 @@ def open_gui():
                                     if path:
                                         gui.temp_config_value = path
                                         gui.save_enabled = gui.is_dirty(selected, config)
+                                        needs_redraw = True  # Force redraw to show selected file immediately
+                                        print(f"[GUI DEBUG] File selected: {os.path.basename(path)}")
                                     root.destroy()
                                 except Exception as e:
                                     print(f"[GUI ERROR] Failed to open file dialog: {e}")
@@ -124,41 +180,71 @@ def open_gui():
                         # Click on one of the buttons 1-9
                         btn = find_button_click(mx, my)
                         if btn:
+                            print(f"[GUI DEBUG] Selected button: {btn}")
                             select_button(btn)
+                            
+                            # Reset temporary configuration state when selecting a new button
                             gui.temp_config_type = None
                             gui.temp_config_value = None
-                            gui.save_enabled = gui.is_dirty(selected, config)
+                            gui.save_enabled = False
+                            gui.input_active = False
+                            
+                            needs_redraw = True
                     
                     # Text field handling for URL input
                     elif event.type == pygame.KEYDOWN and gui.input_active:
                         try:
+                            current_value = gui.temp_config_value or ""
+                            
                             if event.key == pygame.K_BACKSPACE:
-                                gui.temp_config_value = (gui.temp_config_value or "")[:-1]
+                                gui.temp_config_value = current_value[:-1]
                             elif event.key == pygame.K_v and (pygame.key.get_mods() & pygame.KMOD_CTRL):
                                 # Ctrl+V: paste from clipboard
-                                clipboard_text = pyperclip.paste()
-                                if clipboard_text:
-                                    gui.temp_config_value = (gui.temp_config_value or "") + clipboard_text
+                                try:
+                                    clipboard_text = pyperclip.paste()
+                                    if clipboard_text:
+                                        gui.temp_config_value = current_value + clipboard_text
+                                except Exception as clipboard_error:
+                                    print(f"[GUI WARNING] Clipboard paste failed: {clipboard_error}")
                             elif event.key == pygame.K_a and (pygame.key.get_mods() & pygame.KMOD_CTRL):
                                 # Ctrl+A → Select all (symbolic, no visual action)
                                 pass  # nothing to do here (everything is already "selected")
                             elif event.key == pygame.K_c and (pygame.key.get_mods() & pygame.KMOD_CTRL):
                                 # Ctrl+C → Copy entire field
-                                if gui.temp_config_value:
-                                    pyperclip.copy(gui.temp_config_value)
+                                if current_value:
+                                    try:
+                                        pyperclip.copy(current_value)
+                                    except Exception as clipboard_error:
+                                        print(f"[GUI WARNING] Clipboard copy failed: {clipboard_error}")
                             elif event.key == pygame.K_x and (pygame.key.get_mods() & pygame.KMOD_CTRL):
                                 # Ctrl+X → Cut everything
-                                if gui.temp_config_value:
-                                    pyperclip.copy(gui.temp_config_value)
-                                    gui.temp_config_value = ""
-                                    gui.save_enabled = gui.is_dirty(selected, config)        
+                                if current_value:
+                                    try:
+                                        pyperclip.copy(current_value)
+                                        gui.temp_config_value = ""
+                                    except Exception as clipboard_error:
+                                        print(f"[GUI WARNING] Clipboard cut failed: {clipboard_error}")      
+                            elif event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                                # Enter key deactivates input field
+                                gui.input_active = False
+                            elif event.key == pygame.K_ESCAPE:
+                                # Escape key cancels input and restores original value
+                                gui.input_active = False
+                                current_config = config.get(selected, {"type": "none", "value": ""})
+                                gui.temp_config_value = current_config.get("value", "")
                             else:
                                 char = event.unicode
                                 if char.isprintable():
-                                    gui.temp_config_value = (gui.temp_config_value or "") + char
+                                    gui.temp_config_value = current_value + char
+                            
+                            # Update save button state after any change
                             gui.save_enabled = gui.is_dirty(selected, config)
+                            needs_redraw = True
+                            
                         except Exception as e:
                             print(f"[GUI ERROR] Keyboard input error: {e}")
+                            import traceback
+                            traceback.print_exc()
                             
             except Exception as e:
                 print(f"[GUI ERROR] Error in main loop: {e}")
