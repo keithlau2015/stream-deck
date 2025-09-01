@@ -16,7 +16,7 @@ import subprocess
 from datetime import datetime, timedelta
 
 # Current version of the application
-CURRENT_VERSION = "1.2.0"  # This should match the latest release
+CURRENT_VERSION = "1.1.0"  # Set to lower version to test auto-update
 GITHUB_REPO = "keithlau2015/stream-deck"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 UPDATE_CHECK_INTERVAL = 3600  # Check for updates every hour (in seconds)
@@ -106,6 +106,8 @@ class UpdateManager:
         """Check for available updates from GitHub releases"""
         try:
             print(f"[UPDATE] Checking for updates... (manual: {manual})")
+            print(f"[UPDATE] Current version: {self.current_version}")
+            print(f"[UPDATE] API URL: {GITHUB_API_URL}")
             
             # Make API request to GitHub
             headers = {
@@ -113,23 +115,43 @@ class UpdateManager:
                 'User-Agent': f'StreamDeck-V2/{self.current_version}'
             }
             
-            response = requests.get(GITHUB_API_URL, headers=headers, timeout=10)
+            print("[UPDATE] Making API request...")
+            response = requests.get(GITHUB_API_URL, headers=headers, timeout=15)
+            print(f"[UPDATE] API response status: {response.status_code}")
             response.raise_for_status()
             
             release_data = response.json()
             self.latest_release_info = release_data
             self.latest_version = release_data['tag_name'].lstrip('v')
             
+            print(f"[UPDATE] Latest version from API: {self.latest_version}")
+            print(f"[UPDATE] Release published at: {release_data.get('published_at', 'Unknown')}")
+            
             # Update last check time
             self.config["last_check"] = datetime.now().isoformat()
             self.save_config()
             
-            # Compare versions
-            if version.parse(self.latest_version) > version.parse(self.current_version):
+            # Compare versions with detailed logging
+            print(f"[UPDATE] Comparing versions: {self.current_version} vs {self.latest_version}")
+            current_parsed = version.parse(self.current_version)
+            latest_parsed = version.parse(self.latest_version)
+            
+            print(f"[UPDATE] Parsed current: {current_parsed}")
+            print(f"[UPDATE] Parsed latest: {latest_parsed}")
+            
+            if latest_parsed > current_parsed:
+                print(f"[UPDATE] Update available! {latest_parsed} > {current_parsed}")
                 # Check if this version was ignored
                 if self.config["ignored_version"] != self.latest_version:
                     self.update_available = True
                     print(f"[UPDATE] New version available: {self.latest_version} (current: {self.current_version})")
+                    
+                    # Check for available assets
+                    assets = release_data.get('assets', [])
+                    print(f"[UPDATE] Available assets: {len(assets)}")
+                    for asset in assets:
+                        print(f"[UPDATE]   - {asset['name']} ({asset['size']} bytes)")
+                    
                     self.notify_callbacks("update_available", {
                         "current_version": self.current_version,
                         "latest_version": self.latest_version,
@@ -138,8 +160,10 @@ class UpdateManager:
                     return True
                 else:
                     print(f"[UPDATE] Version {self.latest_version} is ignored by user")
+                    self.update_available = False
             else:
                 print(f"[UPDATE] No updates available (latest: {self.latest_version}, current: {self.current_version})")
+                self.update_available = False
                 if manual:
                     self.notify_callbacks("no_update", {
                         "current_version": self.current_version,
@@ -221,6 +245,9 @@ class UpdateManager:
             self.downloading = False
             self.download_progress = 100
             
+            # Store the downloaded file path for later installation
+            self.downloaded_file_path = file_path
+            
             print(f"[UPDATE] Download completed: {file_path}")
             self.notify_callbacks("download_completed", {
                 "file_path": file_path,
@@ -253,9 +280,12 @@ class UpdateManager:
             backup_path = os.path.join(backup_dir, f"backup_{self.current_version}_{int(time.time())}")
             
             print(f"[UPDATE] Creating backup at: {backup_path}")
-            shutil.copytree(current_dir, backup_path, ignore=shutil.ignore_patterns('*.log', '*.tmp', '__pycache__'))
+            try:
+                shutil.copytree(current_dir, backup_path, ignore=shutil.ignore_patterns('*.log', '*.tmp', '__pycache__', 'updates'))
+            except Exception as backup_error:
+                print(f"[UPDATE WARNING] Backup failed: {backup_error}")
             
-            # If it's a zip file, extract it
+            # Handle different file types
             if update_file_path.endswith('.zip'):
                 print("[UPDATE] Extracting update archive...")
                 with zipfile.ZipFile(update_file_path, 'r') as zip_ref:
@@ -270,6 +300,17 @@ class UpdateManager:
                         rel_path = os.path.relpath(src_path, extract_path)
                         dst_path = os.path.join(current_dir, rel_path)
                         
+                        # Skip if trying to overwrite currently running executable
+                        if dst_path.endswith('.exe') and os.path.exists(dst_path):
+                            try:
+                                # Try to rename the old exe first
+                                old_exe = dst_path + '.old'
+                                if os.path.exists(old_exe):
+                                    os.remove(old_exe)
+                                os.rename(dst_path, old_exe)
+                            except:
+                                print(f"[UPDATE WARNING] Could not backup {file}")
+                        
                         # Ensure destination directory exists
                         os.makedirs(os.path.dirname(dst_path), exist_ok=True)
                         shutil.copy2(src_path, dst_path)
@@ -277,11 +318,39 @@ class UpdateManager:
                 
                 # Clean up extracted files
                 shutil.rmtree(extract_path)
-            
+                
             elif update_file_path.endswith('.exe'):
-                # If it's an executable installer, run it
-                print("[UPDATE] Running installer...")
-                subprocess.run([update_file_path], check=True)
+                # For executable installers, we need a different approach
+                print("[UPDATE] Preparing to run installer...")
+                
+                # Create a batch script to run the installer after the app closes
+                batch_script = os.path.join(self.config["download_path"], "update_installer.bat")
+                with open(batch_script, 'w') as f:
+                    f.write('@echo off\n')
+                    f.write('echo StreamDeck V2 Auto-Update\n')
+                    f.write('echo Waiting for application to close...\n')
+                    f.write('timeout /t 3 /nobreak\n')
+                    f.write(f'echo Running installer: {update_file_path}\n')
+                    f.write(f'"{update_file_path}" /S\n')  # Silent install
+                    f.write('echo Installation completed\n')
+                    f.write('timeout /t 2 /nobreak\n')
+                    f.write(f'del "{batch_script}"\n')  # Clean up
+                
+                print(f"[UPDATE] Created installer script: {batch_script}")
+                
+                # Run the batch script in background and exit the app
+                self.notify_callbacks("install_started", {
+                    "version": self.latest_version,
+                    "installer_path": update_file_path,
+                    "script_path": batch_script
+                })
+                
+                # Start the installer script
+                subprocess.Popen([batch_script], shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                
+                # Signal that the app should exit
+                print("[UPDATE] Installer will run after app exit")
+                return "restart_required"
             
             print("[UPDATE] Installation completed successfully")
             self.notify_callbacks("install_completed", {
@@ -327,9 +396,18 @@ class UpdateManager:
     def start_background_checker(self):
         """Start background thread to periodically check for updates"""
         def background_check():
+            # Initial check after startup (delayed by 30 seconds)
+            time.sleep(30)
+            print("[UPDATE] Performing initial update check...")
+            try:
+                self.check_for_updates(manual=False)
+            except Exception as e:
+                print(f"[UPDATE ERROR] Initial check error: {e}")
+            
             while True:
                 try:
                     if self.should_check_now():
+                        print("[UPDATE] Time for scheduled update check...")
                         self.check_for_updates(manual=False)
                     time.sleep(300)  # Check every 5 minutes whether it's time to check
                 except Exception as e:
@@ -340,6 +418,9 @@ class UpdateManager:
             thread = threading.Thread(target=background_check, daemon=True)
             thread.start()
             print("[UPDATE] Background update checker started")
+            print(f"[UPDATE] Will check every {self.config['check_interval']} seconds")
+        else:
+            print("[UPDATE] Auto-check disabled")
 
 # Global update manager instance
 update_manager = UpdateManager()

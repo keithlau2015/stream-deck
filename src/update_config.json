@@ -1,0 +1,9 @@
+{
+  "auto_check": true,
+  "auto_download": true,
+  "auto_install": false,
+  "last_check": "2025-09-02T00:05:53.545608",
+  "ignored_version": null,
+  "check_interval": 3600,
+  "download_path": "C:\\Project\\stream-deck\\src\\updates"
+}

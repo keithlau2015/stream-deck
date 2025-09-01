@@ -84,15 +84,7 @@ def create_tray_icon(config_callback):
         gpio_thread.start()
         print("[TRAY] Opening GPIO settings GUI...")
     
-    def reload_configurations():
-        """Manually reload both button preferences and GPIO configuration"""
-        try:
-            from gpio import signal_config_reload
-            signal_config_reload()
-            print("[TRAY] Configuration reload requested")
-        except Exception as e:
-            print(f"[TRAY ERROR] Failed to reload configuration: {e}")
-    
+
     def check_for_updates_manual():
         """Manually check for updates"""
         if not update_manager:
@@ -128,6 +120,12 @@ def create_tray_icon(config_callback):
                 file_path = update_manager.download_update()
                 if file_path:
                     icon.notify("Download Complete", "Update downloaded successfully. Check the menu to install.")
+                    # Update menu to show install option
+                    try:
+                        new_menu = create_menu()
+                        icon.menu = new_menu
+                    except:
+                        pass
                 else:
                     icon.notify("Download Failed", "Failed to download update. Please try again.")
             except Exception as e:
@@ -137,6 +135,53 @@ def create_tray_icon(config_callback):
         thread = threading.Thread(target=download_thread, daemon=True)
         thread.start()
     
+    def install_update():
+        """Install downloaded update"""
+        if not update_manager or not update_manager.update_available:
+            print("[TRAY] No update available to install")
+            return
+        
+        # Check if update has been downloaded
+        if not hasattr(update_manager, 'downloaded_file_path'):
+            # Try to find downloaded file
+            download_path = update_manager.config.get("download_path", "")
+            if update_manager.latest_release_info:
+                assets = update_manager.latest_release_info.get('assets', [])
+                for asset in assets:
+                    filename = asset['name']
+                    file_path = os.path.join(download_path, filename)
+                    if os.path.exists(file_path):
+                        update_manager.downloaded_file_path = file_path
+                        break
+        
+        if not hasattr(update_manager, 'downloaded_file_path') or not os.path.exists(update_manager.downloaded_file_path):
+            icon.notify("Download Required", "Please download the update first.")
+            return
+        
+        def install_thread():
+            try:
+                print("[TRAY] Installing update...")
+                icon.notify("Installing Update", "Installing update. Please wait...")
+                
+                result = update_manager.install_update(update_manager.downloaded_file_path)
+                
+                if result == "restart_required":
+                    icon.notify("Restart Required", "Update installer will run after the application closes.")
+                    # Give user a moment to see the notification, then exit
+                    time.sleep(2)
+                    quit_application(icon)
+                elif result:
+                    icon.notify("Update Complete", "Update installed successfully!")
+                else:
+                    icon.notify("Install Failed", "Failed to install update.")
+                    
+            except Exception as e:
+                print(f"[TRAY ERROR] Failed to install update: {e}")
+                icon.notify("Install Error", "Failed to install update.")
+        
+        thread = threading.Thread(target=install_thread, daemon=True)
+        thread.start()
+    
     def show_update_info():
         """Show information about available update"""
         if not update_manager or not update_manager.update_available:
@@ -144,29 +189,101 @@ def create_tray_icon(config_callback):
             return
         
         try:
-            from tkinter import messagebox
             import tkinter as tk
+            from tkinter import ttk, scrolledtext
             
-            root = tk.Tk()
-            root.withdraw()
+            # Dark theme colors
+            bg_color = "#282828"
+            panel_color = "#3c3c3c"
+            button_color = "#505050"
+            text_color = "#ffffff"
+            accent_color = "#ff7700"
+            info_color = "#2196F3"
+            
+            # Create info window with dark theme
+            info_window = tk.Tk()
+            info_window.title("Update Information")
+            info_window.geometry("600x450")
+            info_window.resizable(True, True)
+            info_window.configure(bg=bg_color)
+            
+            # Configure dark theme styles
+            style = ttk.Style()
+            style.theme_use('clam')
+            
+            style.configure('Dark.TFrame', background=bg_color)
+            style.configure('Panel.TFrame', background=panel_color, borderwidth=0, relief='flat')
+            style.configure('Title.TLabel', background=bg_color, foreground=text_color, font=('Segoe UI', 14, 'bold'))
+            style.configure('Dark.TLabel', background=bg_color, foreground=text_color, font=('Segoe UI', 10))
+            style.configure('Info.TLabel', background=bg_color, foreground=info_color, font=('Segoe UI', 10, 'bold'))
+            style.configure('Accent.TButton', background=accent_color, foreground='white', font=('Segoe UI', 10))
+            style.configure('Dark.TButton', background=button_color, foreground=text_color, font=('Segoe UI', 10))
+            
+            style.map('Accent.TButton', background=[('active', '#ff8800')])
+            style.map('Dark.TButton', background=[('active', '#606060')])
+            
+            # Main frame
+            main_frame = ttk.Frame(info_window, style='Dark.TFrame', padding="15")
+            main_frame.pack(fill='both', expand=True)
             
             release_info = update_manager.latest_release_info
             current_ver = update_manager.current_version
             latest_ver = update_manager.latest_version
             
-            message = f"""Current Version: {current_ver}
-Latest Version: {latest_ver}
-
-Release Notes:
-{release_info.get('body', 'No release notes available')}
-
-Published: {release_info.get('published_at', 'Unknown')}"""
+            # Version info with dark theme
+            ttk.Label(main_frame, text="Update Available", style='Title.TLabel').pack(pady=(0, 10))
             
-            messagebox.showinfo("Update Information", message)
-            root.destroy()
+            info_text = f"Current Version: {current_ver}\nLatest Version: {latest_ver}\n"
+            if release_info.get('published_at'):
+                info_text += f"Published: {release_info['published_at']}\n"
+            
+            ttk.Label(main_frame, text=info_text, style='Dark.TLabel').pack(anchor='w', pady=(0, 10))
+            
+            # Release notes
+            ttk.Label(main_frame, text="Release Notes:", style='Info.TLabel').pack(anchor='w')
+            
+            # Scrollable text area for release notes with dark theme
+            notes_text = scrolledtext.ScrolledText(main_frame, wrap=tk.WORD, 
+                                                  width=70, height=15, 
+                                                  font=('Segoe UI', 9),
+                                                  bg=panel_color, fg=text_color,
+                                                  insertbackground=text_color,
+                                                  selectbackground=accent_color,
+                                                  selectforeground='white',
+                                                  borderwidth=1, relief='solid')
+            notes_text.pack(fill='both', expand=True, pady=(5, 10))
+            
+            # Insert release notes
+            body = release_info.get('body', 'No release notes available.')
+            notes_text.insert('1.0', body)
+            notes_text.configure(state='disabled')  # Make read-only
+            
+            # Buttons with dark theme
+            button_frame = ttk.Frame(main_frame, style='Dark.TFrame')
+            button_frame.pack(fill='x', pady=(10, 0))
+            
+            ttk.Button(button_frame, text="Download Update", 
+                      command=lambda: [download_update(), info_window.destroy()], style='Accent.TButton').pack(side='right', padx=(5, 0))
+            ttk.Button(button_frame, text="Close", 
+                      command=info_window.destroy, style='Dark.TButton').pack(side='right')
+            
+            # Center the window
+            info_window.update_idletasks()
+            x = (info_window.winfo_screenwidth() // 2) - (info_window.winfo_width() // 2)
+            y = (info_window.winfo_screenheight() // 2) - (info_window.winfo_height() // 2)
+            info_window.geometry(f"+{x}+{y}")
+            
+            info_window.mainloop()
             
         except Exception as e:
             print(f"[TRAY ERROR] Failed to show update info: {e}")
+            # Fallback to simple message
+            try:
+                from tkinter import messagebox
+                messagebox.showinfo("Update Available", 
+                                  f"Version {update_manager.latest_version} is available!")
+            except:
+                pass
     
     def update_callback(event_type, data):
         """Handle update manager callbacks"""
@@ -174,14 +291,42 @@ Published: {release_info.get('published_at', 'Unknown')}"""
             if event_type == "update_available":
                 update_available["value"] = True
                 version = data.get("latest_version", "unknown")
-                icon.notify("Update Available", f"StreamDeck V2 version {version} is available!")
                 print(f"[TRAY] Update available: {version}")
+                
+                # Show notification
+                try:
+                    icon.notify("Update Available", f"StreamDeck V2 version {version} is available!")
+                except Exception as notify_error:
+                    print(f"[TRAY WARNING] Notification failed: {notify_error}")
+                
+                # Update menu to reflect new status
+                try:
+                    new_menu = create_menu()
+                    icon.menu = new_menu
+                    print("[TRAY] Menu updated to show available update")
+                except Exception as menu_error:
+                    print(f"[TRAY WARNING] Menu update failed: {menu_error}")
+                    
             elif event_type == "download_completed":
                 version = data.get("version", "unknown")
-                icon.notify("Download Complete", f"Version {version} downloaded successfully!")
+                try:
+                    icon.notify("Download Complete", f"Version {version} downloaded successfully!")
+                except:
+                    pass
             elif event_type == "install_completed":
                 version = data.get("version", "unknown")
-                icon.notify("Update Installed", f"Version {version} installed! Please restart the application.")
+                try:
+                    icon.notify("Update Installed", f"Version {version} installed! Please restart the application.")
+                except:
+                    pass
+            elif event_type == "no_update":
+                print("[TRAY] No update available")
+                # Update menu to show up-to-date status
+                try:
+                    new_menu = create_menu()
+                    icon.menu = new_menu
+                except:
+                    pass
         except Exception as e:
             print(f"[TRAY ERROR] Update callback error: {e}")
     
@@ -212,19 +357,36 @@ Published: {release_info.get('published_at', 'Unknown')}"""
         if not update_manager:
             return pystray.MenuItem("Check for Updates", check_for_updates_manual)
         
-        items = [
-            pystray.MenuItem("Check for Updates", check_for_updates_manual),
-            pystray.MenuItem("Update Settings", open_update_settings),
-        ]
+        # Check current update status
+        has_update = update_manager.update_available
+        latest_ver = getattr(update_manager, 'latest_version', None)
         
-        if update_manager.update_available:
+        items = []
+        
+        # Always show check for updates
+        items.append(pystray.MenuItem("Check for Updates", check_for_updates_manual))
+        
+        # Show update available status
+        if has_update and latest_ver:
             items.extend([
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem("Update Information", show_update_info),
-                pystray.MenuItem("Download Update", download_update),
+                pystray.MenuItem(f"⚠️ Update Available: v{latest_ver}", show_update_info),
+                pystray.MenuItem("📥 Download Update", download_update),
+                pystray.MenuItem("🚀 Install Update", install_update),
+                pystray.MenuItem("ℹ️ Release Notes", show_update_info),
+            ])
+        else:
+            items.extend([
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("✅ Up to Date", lambda: None),  # Disabled item
             ])
         
-        return pystray.MenuItem("Updates", pystray.Menu(*items))
+        items.extend([
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("⚙️ Update Settings", open_update_settings),
+        ])
+        
+        return pystray.MenuItem("🔄 Updates", pystray.Menu(*items))
     
     # Create the menu with dynamic update submenu
     def create_menu():
@@ -233,8 +395,6 @@ Published: {release_info.get('published_at', 'Unknown')}"""
             pystray.MenuItem("GPIO Settings", open_gpio_settings),
             pystray.Menu.SEPARATOR,
             create_update_menu(),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Reload Configuration", reload_configurations),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", quit_application)
         )

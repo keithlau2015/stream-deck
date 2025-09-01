@@ -14,8 +14,21 @@ class UpdateSettingsGUI:
         self.update_manager = get_update_manager()
         self.root = tk.Tk()
         self.root.title("StreamDeck V2 - Update Settings")
-        self.root.geometry("500x400")
-        self.root.resizable(False, False)
+        self.root.geometry("520x450")
+        self.root.resizable(True, False)  # Allow horizontal resizing
+        
+        # Dark theme colors
+        self.bg_color = "#282828"
+        self.panel_color = "#3c3c3c"
+        self.button_color = "#505050"
+        self.text_color = "#ffffff"
+        self.accent_color = "#ff7700"
+        self.success_color = "#4CAF50"
+        self.warning_color = "#FF5722"
+        self.info_color = "#2196F3"
+        
+        # Apply dark theme to root window
+        self.root.configure(bg=self.bg_color)
         
         # Variables for settings
         self.auto_check_var = tk.BooleanVar(value=self.update_manager.config.get("auto_check", True))
@@ -46,85 +59,175 @@ class UpdateSettingsGUI:
         self.setup_ui()
         
     def setup_ui(self):
-        """Setup the update settings UI"""
-        # Configure style
+        """Setup the update settings UI with dark theme"""
+        # Configure dark theme styles
         style = ttk.Style()
         style.theme_use('clam')
         
-        # Main frame
-        main_frame = ttk.Frame(self.root, padding="20")
+        # Configure styles for dark theme
+        style.configure('Dark.TFrame',
+                       background=self.bg_color)
+        
+        style.configure('Panel.TFrame',
+                       background=self.panel_color,
+                       borderwidth=0,
+                       relief='flat')
+        
+        style.configure('Title.TLabel',
+                       background=self.bg_color,
+                       foreground=self.text_color,
+                       font=('Segoe UI', 16, 'bold'))
+        
+        style.configure('Heading.TLabel',
+                       background=self.panel_color,
+                       foreground=self.text_color,
+                       font=('Segoe UI', 11, 'bold'))
+        
+        style.configure('Dark.TLabel',
+                       background=self.panel_color,
+                       foreground=self.text_color,
+                       font=('Segoe UI', 10))
+        
+        style.configure('Info.TLabel',
+                       background=self.panel_color,
+                       foreground=self.info_color,
+                       font=('Segoe UI', 9))
+        
+        style.configure('Warning.TLabel',
+                       background=self.panel_color,
+                       foreground=self.warning_color,
+                       font=('Segoe UI', 9))
+        
+        style.configure('Dark.TCheckbutton',
+                       background=self.panel_color,
+                       foreground=self.text_color,
+                       focuscolor='none',
+                       indicatorbackground=self.button_color,
+                       indicatorforeground=self.text_color)
+        
+        style.configure('Dark.TCombobox',
+                       fieldbackground=self.button_color,
+                       background=self.button_color,
+                       foreground=self.text_color,
+                       borderwidth=1,
+                       arrowcolor=self.text_color)
+        
+        style.configure('Accent.TButton',
+                       background=self.accent_color,
+                       foreground='white',
+                       borderwidth=1,
+                       focuscolor='none',
+                       font=('Segoe UI', 10))
+        
+        style.configure('Dark.TButton',
+                       background=self.button_color,
+                       foreground=self.text_color,
+                       borderwidth=1,
+                       focuscolor='none',
+                       font=('Segoe UI', 10))
+        
+        style.map('Dark.TCheckbutton',
+                 background=[('active', self.panel_color)])
+        
+        style.map('Dark.TCombobox',
+                 focuscolor=[('!focus', 'none')],
+                 bordercolor=[('focus', self.accent_color)])
+        
+        style.map('Accent.TButton',
+                 background=[('active', '#ff8800')],
+                 relief=[('pressed', 'flat')])
+        
+        style.map('Dark.TButton',
+                 background=[('active', '#606060')],
+                 relief=[('pressed', 'flat')])
+        
+        # Main frame with dark background
+        main_frame = ttk.Frame(self.root, style='Dark.TFrame', padding="20")
         main_frame.pack(fill='both', expand=True)
         
         # Title
-        title_label = ttk.Label(main_frame, text="Update Settings", font=('Segoe UI', 16, 'bold'))
+        title_label = ttk.Label(main_frame, text="Update Settings", style='Title.TLabel')
         title_label.pack(pady=(0, 20))
         
-        # Current version info
-        info_frame = ttk.LabelFrame(main_frame, text="Current Version", padding="10")
+        # Current version info with dark theme
+        info_frame = ttk.LabelFrame(main_frame, text="Current Version", style='Panel.TFrame', padding="15")
         info_frame.pack(fill='x', pady=(0, 15))
         
         current_version = get_current_version()
-        version_label = ttk.Label(info_frame, text=f"Version: {current_version}")
+        version_label = ttk.Label(info_frame, text=f"Version: {current_version}", style='Dark.TLabel')
         version_label.pack(anchor='w')
         
         # Check for updates button
-        check_frame = ttk.Frame(info_frame)
+        check_frame = ttk.Frame(info_frame, style='Panel.TFrame')
         check_frame.pack(fill='x', pady=(10, 0))
         
         ttk.Button(check_frame, text="Check for Updates Now", 
-                  command=self.check_updates_now).pack(side='left')
+                  command=self.check_updates_now, style='Accent.TButton').pack(side='left')
         
-        self.status_label = ttk.Label(check_frame, text="")
+        self.status_label = ttk.Label(check_frame, text="", style='Info.TLabel')
         self.status_label.pack(side='left', padx=(10, 0))
         
-        # Auto-update settings
-        settings_frame = ttk.LabelFrame(main_frame, text="Automatic Update Settings", padding="10")
+        # Auto-update settings with dark theme
+        settings_frame = ttk.LabelFrame(main_frame, text="Automatic Update Settings", style='Panel.TFrame', padding="15")
         settings_frame.pack(fill='x', pady=(0, 15))
         
         # Auto-check setting
         ttk.Checkbutton(settings_frame, text="Automatically check for updates", 
                        variable=self.auto_check_var,
-                       command=self.on_auto_check_changed).pack(anchor='w', pady=2)
+                       command=self.on_auto_check_changed, style='Dark.TCheckbutton').pack(anchor='w', pady=5)
         
         # Check interval
-        interval_frame = ttk.Frame(settings_frame)
-        interval_frame.pack(fill='x', pady=(5, 10))
+        interval_frame = ttk.Frame(settings_frame, style='Panel.TFrame')
+        interval_frame.pack(fill='x', pady=(10, 15))
         
-        ttk.Label(interval_frame, text="Check interval:").pack(side='left')
+        ttk.Label(interval_frame, text="Check interval:", style='Dark.TLabel').pack(side='left')
         
         self.interval_combo = ttk.Combobox(interval_frame, textvariable=self.interval_var,
                                           values=list(self.interval_options.keys()),
-                                          state='readonly', width=15)
+                                          state='readonly', width=15, style='Dark.TCombobox')
         self.interval_combo.pack(side='left', padx=(10, 0))
         
         # Auto-download setting
         ttk.Checkbutton(settings_frame, text="Automatically download updates", 
-                       variable=self.auto_download_var).pack(anchor='w', pady=2)
+                       variable=self.auto_download_var, style='Dark.TCheckbutton').pack(anchor='w', pady=5)
         
         # Auto-install setting
         ttk.Checkbutton(settings_frame, text="Automatically install updates (Not recommended)", 
-                       variable=self.auto_install_var).pack(anchor='w', pady=2)
+                       variable=self.auto_install_var, style='Dark.TCheckbutton').pack(anchor='w', pady=5)
         
-        # Warning note
-        warning_label = ttk.Label(settings_frame, 
-                                 text="Note: Automatic installation will restart the application without warning.",
-                                 font=('Segoe UI', 8), foreground='red')
-        warning_label.pack(anchor='w', pady=(0, 5))
+        # Warning note with proper wrapping and dark theme
+        warning_frame = ttk.Frame(settings_frame, style='Panel.TFrame')
+        warning_frame.pack(fill='x', pady=(10, 5))
         
-        # Download location
-        location_frame = ttk.LabelFrame(main_frame, text="Download Location", padding="10")
+        warning_label = ttk.Label(warning_frame, 
+                                 text="⚠️ Warning: Automatic installation will restart the application without warning.",
+                                 style='Warning.TLabel', wraplength=450, justify='left')
+        warning_label.pack(anchor='w', fill='x')
+        
+        # Additional warning info
+        warning_label2 = ttk.Label(warning_frame,
+                                  text="This may interrupt your work. Manual installation is recommended.",
+                                  style='Warning.TLabel', wraplength=450, justify='left')
+        warning_label2.pack(anchor='w', fill='x')
+        
+        # Download location with dark theme
+        location_frame = ttk.LabelFrame(main_frame, text="Download Location", style='Panel.TFrame', padding="15")
         location_frame.pack(fill='x', pady=(0, 15))
         
         download_path = self.update_manager.config.get("download_path", "")
-        ttk.Label(location_frame, text=f"Updates downloaded to:").pack(anchor='w')
-        ttk.Label(location_frame, text=download_path, font=('Segoe UI', 8), foreground='blue').pack(anchor='w')
+        ttk.Label(location_frame, text="Updates downloaded to:", style='Dark.TLabel').pack(anchor='w')
         
-        # Buttons
-        button_frame = ttk.Frame(main_frame)
+        # Path display with wrapping for long paths
+        path_label = ttk.Label(location_frame, text=download_path, 
+                              style='Info.TLabel', wraplength=480, justify='left')
+        path_label.pack(anchor='w', fill='x', pady=(5, 0))
+        
+        # Buttons with dark theme
+        button_frame = ttk.Frame(main_frame, style='Dark.TFrame')
         button_frame.pack(fill='x', pady=(20, 0))
         
-        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side='right', padx=(10, 0))
-        ttk.Button(button_frame, text="Save Settings", command=self.save_settings).pack(side='right')
+        ttk.Button(button_frame, text="Cancel", command=self.cancel, style='Dark.TButton').pack(side='right', padx=(10, 0))
+        ttk.Button(button_frame, text="Save Settings", command=self.save_settings, style='Accent.TButton').pack(side='right')
         
         # Update the state of interval combo based on auto_check
         self.on_auto_check_changed()
@@ -169,16 +272,24 @@ class UpdateSettingsGUI:
             messagebox.showinfo("No Information", "No release information available.")
             return
         
-        # Create new window for release notes
+        # Create new window for release notes with dark theme
         notes_window = tk.Toplevel(self.root)
         notes_window.title(f"Release Notes - v{self.update_manager.latest_version}")
-        notes_window.geometry("600x400")
+        notes_window.geometry("700x500")
+        notes_window.resizable(True, True)  # Allow resizing for long release notes
+        notes_window.configure(bg=self.bg_color)
         
-        # Text widget with scrollbar
-        frame = ttk.Frame(notes_window)
-        frame.pack(fill='both', expand=True, padx=10, pady=10)
+        # Text widget with scrollbar and dark theme
+        frame = ttk.Frame(notes_window, style='Dark.TFrame')
+        frame.pack(fill='both', expand=True, padx=15, pady=15)
         
-        text_widget = tk.Text(frame, wrap='word', font=('Segoe UI', 10))
+        # Dark themed text widget
+        text_widget = tk.Text(frame, wrap='word', font=('Segoe UI', 10),
+                             bg=self.panel_color, fg=self.text_color,
+                             insertbackground=self.text_color,
+                             selectbackground=self.accent_color,
+                             selectforeground='white',
+                             borderwidth=1, relief='solid')
         scrollbar = ttk.Scrollbar(frame, orient='vertical', command=text_widget.yview)
         text_widget.configure(yscrollcommand=scrollbar.set)
         
@@ -197,14 +308,14 @@ class UpdateSettingsGUI:
         text_widget.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
         
-        # Download button
-        button_frame = ttk.Frame(notes_window)
-        button_frame.pack(fill='x', padx=10, pady=(0, 10))
+        # Download button with dark theme
+        button_frame = ttk.Frame(notes_window, style='Dark.TFrame')
+        button_frame.pack(fill='x', padx=15, pady=(0, 15))
         
         ttk.Button(button_frame, text="Download Update", 
-                  command=lambda: self.download_update(notes_window)).pack(side='right', padx=(5, 0))
+                  command=lambda: self.download_update(notes_window), style='Accent.TButton').pack(side='right', padx=(5, 0))
         ttk.Button(button_frame, text="Close", 
-                  command=notes_window.destroy).pack(side='right')
+                  command=notes_window.destroy, style='Dark.TButton').pack(side='right')
     
     def download_update(self, parent_window=None):
         """Download the available update"""
@@ -217,22 +328,27 @@ class UpdateSettingsGUI:
                 if parent_window:
                     parent_window.destroy()
                 
-                # Show progress dialog
+                # Show progress dialog with dark theme
                 progress_window = tk.Toplevel(self.root)
                 progress_window.title("Downloading Update")
                 progress_window.geometry("400x150")
                 progress_window.resizable(False, False)
+                progress_window.configure(bg=self.bg_color)
                 
-                ttk.Label(progress_window, text="Downloading update...", 
-                         font=('Segoe UI', 12)).pack(pady=20)
+                # Main frame
+                main_frame = ttk.Frame(progress_window, style='Dark.TFrame', padding="20")
+                main_frame.pack(fill='both', expand=True)
+                
+                ttk.Label(main_frame, text="Downloading update...", 
+                         font=('Segoe UI', 12), style='Title.TLabel').pack(pady=(0, 15))
                 
                 progress_var = tk.DoubleVar()
-                progress_bar = ttk.Progressbar(progress_window, variable=progress_var, 
+                progress_bar = ttk.Progressbar(main_frame, variable=progress_var, 
                                              maximum=100, length=300)
                 progress_bar.pack(pady=10)
                 
-                status_label = ttk.Label(progress_window, text="Preparing...")
-                status_label.pack()
+                status_label = ttk.Label(main_frame, text="Preparing...", style='Info.TLabel')
+                status_label.pack(pady=(10, 0))
                 
                 # Download update
                 file_path = self.update_manager.download_update()
