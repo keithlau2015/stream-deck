@@ -43,7 +43,6 @@ DEFAULT_UPDATE_CONFIG = {
     "install_delay": 5,  # 安装前等待时间（秒）
     "last_check": None,
     "ignored_version": None,
-    "last_processed_version": None,  # 上次处理的版本，防止重复通知
     "check_interval": UPDATE_CHECK_INTERVAL,
     "download_path": os.path.join(get_app_data_dir(), "updates")
 }
@@ -73,6 +72,7 @@ class UpdateManager:
                     # Merge with defaults to ensure all keys exist
                     merged_config = DEFAULT_UPDATE_CONFIG.copy()
                     merged_config.update(config)
+                    print(f"[UPDATE] Loaded config: {merged_config}")
                     return merged_config
             else:
                 self.save_config(DEFAULT_UPDATE_CONFIG)
@@ -146,42 +146,31 @@ class UpdateManager:
                 print(f"[UPDATE] Update available! {latest_parsed} > {current_parsed}")
                 # Check if this version was ignored
                 if self.config["ignored_version"] != self.latest_version:
-                    # Check if we've already processed this version
-                    last_processed_version = self.config.get("last_processed_version")
+                    self.update_available = True
+                    print(f"[UPDATE] New version available: {self.latest_version} (current: {self.current_version})")
                     
-                    if last_processed_version != self.latest_version:
-                        self.update_available = True
-                        print(f"[UPDATE] New version available: {self.latest_version} (current: {self.current_version})")
-                        
-                        # Check for available assets
-                        assets = release_data.get('assets', [])
-                        print(f"[UPDATE] Available assets: {len(assets)}")
-                        for asset in assets:
-                            print(f"[UPDATE]   - {asset['name']} ({asset['size']} bytes)")
-                        
-                        # Mark this version as processed to prevent repeated notifications
-                        self.config["last_processed_version"] = self.latest_version
-                        self.save_config()
-                        
-                        self.notify_callbacks("update_available", {
-                            "current_version": self.current_version,
-                            "latest_version": self.latest_version,
-                            "release_info": self.latest_release_info
-                        })
-                        
-                        # 自动下载和安装逻辑 (只在新版本处理时执行)
-                        auto_download = self.config.get("auto_download", False)
-                        print(f"[UPDATE] Auto-download setting: {auto_download}")
-                        
-                        if auto_download:
-                            print("[UPDATE] Auto-download enabled, starting download...")
-                            self.auto_download_and_install()
-                        else:
-                            print("[UPDATE] Auto-download disabled, manual action required")
+                    # Check for available assets
+                    assets = release_data.get('assets', [])
+                    print(f"[UPDATE] Available assets: {len(assets)}")
+                    for asset in assets:
+                        print(f"[UPDATE]   - {asset['name']} ({asset['size']} bytes)")
+                    
+                    self.notify_callbacks("update_available", {
+                        "current_version": self.current_version,
+                        "latest_version": self.latest_version,
+                        "release_info": self.latest_release_info
+                    })
+                    
+                    # 自动下载和安装逻辑
+                    auto_download = self.config.get("auto_download", False)
+                    print(f"[UPDATE] Auto-download setting: {auto_download}")
+                    print(f"[UPDATE] Config: {self.config}")
+                    
+                    if auto_download:
+                        print("[UPDATE] Auto-download enabled, starting download...")
+                        self.auto_download_and_install()
                     else:
-                        # Version already processed, just set the flag but don't notify or auto-download again
-                        self.update_available = True
-                        print(f"[UPDATE] Version {self.latest_version} already processed, skipping notifications and auto-download")
+                        print("[UPDATE] Auto-download disabled, manual action required")
                     
                     return True
                 else:

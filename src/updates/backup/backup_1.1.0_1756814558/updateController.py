@@ -14,20 +14,18 @@ class UpdateSettingsGUI:
         self.update_manager = get_update_manager()
         self.root = tk.Tk()
         self.root.title("StreamDeck V2 - Update Settings")
-        self.root.geometry("580x650")  # Increased width and height
-        self.root.resizable(True, True)  # Allow both horizontal and vertical resizing
-        self.root.minsize(580, 650)  # Set minimum size
+        self.root.geometry("520x450")
+        self.root.resizable(True, False)  # Allow horizontal resizing
         
-        # Dark theme colors (unified with application theme)
-        self.bg_color = "#1e1e1e"          # Main background
-        self.panel_color = "#2d2d30"        # Panel background  
-        self.button_color = "#404040"       # Button background
-        self.text_color = "#cccccc"         # Main text
-        self.accent_color = "#0078d4"       # Accent blue
-        self.success_color = "#28a745"      # Success green
-        self.warning_color = "#f48771"      # Warning orange-red
-        self.info_color = "#17a2b8"         # Info blue
-        self.border_color = "#555555"       # Border color
+        # Dark theme colors
+        self.bg_color = "#282828"
+        self.panel_color = "#3c3c3c"
+        self.button_color = "#505050"
+        self.text_color = "#ffffff"
+        self.accent_color = "#ff7700"
+        self.success_color = "#4CAF50"
+        self.warning_color = "#FF5722"
+        self.info_color = "#2196F3"
         
         # Apply dark theme to root window
         self.root.configure(bg=self.bg_color)
@@ -75,20 +73,6 @@ class UpdateSettingsGUI:
                        borderwidth=0,
                        relief='flat')
         
-        # Configure LabelFrame styles for dark theme
-        style.configure('Dark.TLabelframe',
-                       background=self.panel_color,
-                       borderwidth=1,
-                       relief='solid',
-                       bordercolor=self.border_color,
-                       darkcolor=self.panel_color,
-                       lightcolor=self.panel_color)
-        
-        style.configure('Dark.TLabelframe.Label',
-                       background=self.panel_color,
-                       foreground=self.text_color,
-                       font=('Segoe UI', 10, 'bold'))
-        
         style.configure('Title.TLabel',
                        background=self.bg_color,
                        foreground=self.text_color,
@@ -119,19 +103,14 @@ class UpdateSettingsGUI:
                        foreground=self.text_color,
                        focuscolor='none',
                        indicatorbackground=self.button_color,
-                       indicatorforeground=self.text_color,
-                       borderwidth=0,
-                       relief='flat')
+                       indicatorforeground=self.text_color)
         
         style.configure('Dark.TCombobox',
                        fieldbackground=self.button_color,
                        background=self.button_color,
                        foreground=self.text_color,
                        borderwidth=1,
-                       arrowcolor=self.text_color,
-                       insertcolor=self.text_color,
-                       selectbackground=self.accent_color,
-                       selectforeground='white')
+                       arrowcolor=self.text_color)
         
         style.configure('Accent.TButton',
                        background=self.accent_color,
@@ -148,14 +127,11 @@ class UpdateSettingsGUI:
                        font=('Segoe UI', 10))
         
         style.map('Dark.TCheckbutton',
-                 background=[('active', self.panel_color), ('pressed', self.panel_color), ('!disabled', self.panel_color)],
-                 foreground=[('active', self.text_color), ('pressed', self.text_color)])
+                 background=[('active', self.panel_color)])
         
         style.map('Dark.TCombobox',
                  focuscolor=[('!focus', 'none')],
-                 bordercolor=[('focus', self.accent_color)],
-                 fieldbackground=[('readonly', self.button_color), ('disabled', self.button_color)],
-                 background=[('readonly', self.button_color), ('disabled', self.button_color)])
+                 bordercolor=[('focus', self.accent_color)])
         
         style.map('Accent.TButton',
                  background=[('active', '#ff8800')],
@@ -165,24 +141,8 @@ class UpdateSettingsGUI:
                  background=[('active', '#606060')],
                  relief=[('pressed', 'flat')])
         
-        # Create a canvas and scrollbar for scrollable content
-        canvas = tk.Canvas(self.root, bg=self.bg_color, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, style='Dark.TFrame')
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
         # Main frame with dark background
-        main_frame = ttk.Frame(scrollable_frame, style='Dark.TFrame', padding="15")
+        main_frame = ttk.Frame(self.root, style='Dark.TFrame', padding="20")
         main_frame.pack(fill='both', expand=True)
         
         # Title
@@ -190,8 +150,8 @@ class UpdateSettingsGUI:
         title_label.pack(pady=(0, 20))
         
         # Current version info with dark theme
-        info_frame = ttk.LabelFrame(main_frame, text="Current Version", style='Dark.TLabelframe', padding="10")
-        info_frame.pack(fill='x', pady=(0, 10))
+        info_frame = ttk.LabelFrame(main_frame, text="Current Version", style='Panel.TFrame', padding="15")
+        info_frame.pack(fill='x', pady=(0, 15))
         
         current_version = get_current_version()
         version_label = ttk.Label(info_frame, text=f"Version: {current_version}", style='Dark.TLabel')
@@ -208,8 +168,8 @@ class UpdateSettingsGUI:
         self.status_label.pack(side='left', padx=(10, 0))
         
         # Auto-update settings with dark theme
-        settings_frame = ttk.LabelFrame(main_frame, text="Automatic Update Settings", style='Dark.TLabelframe', padding="10")
-        settings_frame.pack(fill='x', pady=(0, 10))
+        settings_frame = ttk.LabelFrame(main_frame, text="Automatic Update Settings", style='Panel.TFrame', padding="15")
+        settings_frame.pack(fill='x', pady=(0, 15))
         
         # Auto-check setting
         ttk.Checkbutton(settings_frame, text="Automatically check for updates", 
@@ -265,42 +225,36 @@ class UpdateSettingsGUI:
         
         warning_label = ttk.Label(warning_frame, 
                                  text="⚠️ 警告: 自动安装会在发现更新后立即下载并安装，应用可能会突然重启。",
-                                 style='Warning.TLabel', wraplength=520, justify='left')
+                                 style='Warning.TLabel', wraplength=450, justify='left')
         warning_label.pack(anchor='w', fill='x')
         
         # Additional warning info
         warning_label2 = ttk.Label(warning_frame,
                                   text="建议在工作时间使用手动安装模式，避免工作中断。",
-                                  style='Warning.TLabel', wraplength=520, justify='left')
+                                  style='Warning.TLabel', wraplength=450, justify='left')
         warning_label2.pack(anchor='w', fill='x')
         
         # Update the prompt frame visibility based on auto_install setting
         self.on_auto_install_changed()
         
         # Download location with dark theme
-        location_frame = ttk.LabelFrame(main_frame, text="Download Location", style='Dark.TLabelframe', padding="10")
-        location_frame.pack(fill='x', pady=(0, 10))
+        location_frame = ttk.LabelFrame(main_frame, text="Download Location", style='Panel.TFrame', padding="15")
+        location_frame.pack(fill='x', pady=(0, 15))
         
         download_path = self.update_manager.config.get("download_path", "")
         ttk.Label(location_frame, text="Updates downloaded to:", style='Dark.TLabel').pack(anchor='w')
         
         # Path display with wrapping for long paths
         path_label = ttk.Label(location_frame, text=download_path, 
-                              style='Info.TLabel', wraplength=540, justify='left')
+                              style='Info.TLabel', wraplength=480, justify='left')
         path_label.pack(anchor='w', fill='x', pady=(5, 0))
         
         # Buttons with dark theme
         button_frame = ttk.Frame(main_frame, style='Dark.TFrame')
-        button_frame.pack(fill='x', pady=(20, 15))
+        button_frame.pack(fill='x', pady=(20, 0))
         
-        # Create button container for better alignment
-        button_container = ttk.Frame(button_frame, style='Dark.TFrame')
-        button_container.pack(anchor='e')
-        
-        ttk.Button(button_container, text="Save Settings", command=self.save_settings, 
-                  style='Accent.TButton', width=15).pack(side='left', padx=(0, 10))
-        ttk.Button(button_container, text="Cancel", command=self.cancel, 
-                  style='Dark.TButton', width=15).pack(side='left')
+        ttk.Button(button_frame, text="Cancel", command=self.cancel, style='Dark.TButton').pack(side='right', padx=(10, 0))
+        ttk.Button(button_frame, text="Save Settings", command=self.save_settings, style='Accent.TButton').pack(side='right')
         
         # Update the state of interval combo based on auto_check
         self.on_auto_check_changed()
@@ -348,9 +302,8 @@ class UpdateSettingsGUI:
         # Create new window for release notes with dark theme
         notes_window = tk.Toplevel(self.root)
         notes_window.title(f"Release Notes - v{self.update_manager.latest_version}")
-        notes_window.geometry("750x600")
+        notes_window.geometry("700x500")
         notes_window.resizable(True, True)  # Allow resizing for long release notes
-        notes_window.minsize(600, 400)  # Set minimum size
         notes_window.configure(bg=self.bg_color)
         
         # Text widget with scrollbar and dark theme
@@ -450,10 +403,13 @@ class UpdateSettingsGUI:
             if hasattr(self, 'auto_install_prompt_frame'):
                 if self.auto_install_var.get():
                     # 显示子选项
-                    self.auto_install_prompt_frame.pack(fill='x', padx=(20, 0), pady=(5, 5))
+                    for child in self.auto_install_prompt_frame.winfo_children():
+                        child.configure(state='normal')
                 else:
-                    # 隐藏子选项
-                    self.auto_install_prompt_frame.pack_forget()
+                    # 隐藏/禁用子选项
+                    for child in self.auto_install_prompt_frame.winfo_children():
+                        if hasattr(child, 'configure'):
+                            child.configure(state='disabled')
         except Exception as e:
             print(f"[UPDATE GUI] Error in auto_install_changed: {e}")
     

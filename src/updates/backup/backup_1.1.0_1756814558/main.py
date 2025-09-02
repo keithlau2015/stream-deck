@@ -71,13 +71,11 @@ def open_gui():
                                 needs_redraw = True
                         # Click on "Cancel"
                         if gui.cancel_button_rect and gui.cancel_button_rect.collidepoint(mx, my):
-                            print("[GUI DEBUG] Cancel button clicked")
                             gui.temp_config_type = None
                             gui.temp_config_value = None
                             gui.save_enabled = False
                             gui.save_clicked = False
-                            gui.input_active = False
-                            # Don't deselect button on cancel, just reset the configuration state
+                            deselect_button()
                             needs_redraw = True
                             print("[GUI DEBUG] Configuration cancelled")
                             break
@@ -105,12 +103,11 @@ def open_gui():
                                 
                                 print(f"[GUI] Saving button {selected}: type={new_type}, value={new_value}")
                                 
-                                # Reset temporary state but keep button selected
+                                # Reset temporary state
                                 gui.temp_config_type = None
                                 gui.temp_config_value = None
                                 gui.save_enabled = False
                                 gui.save_clicked = True
-                                gui.input_active = False
                                 
                                 # Save to file
                                 save_pref(config)
@@ -183,23 +180,16 @@ def open_gui():
                         # Click on one of the buttons 1-9
                         btn = find_button_click(mx, my)
                         if btn:
-                            current_selected = get_selected_button()
-                            print(f"[GUI DEBUG] Button clicked: {btn}, currently selected: {current_selected}")
+                            print(f"[GUI DEBUG] Selected button: {btn}")
+                            select_button(btn)
                             
-                            # Only change selection if it's a different button
-                            if btn != current_selected:
-                                print(f"[GUI DEBUG] Selecting new button: {btn}")
-                                select_button(btn)
-                                
-                                # Reset temporary configuration state when selecting a new button
-                                gui.temp_config_type = None
-                                gui.temp_config_value = None
-                                gui.save_enabled = False
-                                gui.input_active = False
-                                
-                                needs_redraw = True
-                            else:
-                                print(f"[GUI DEBUG] Button {btn} already selected, ignoring duplicate click")
+                            # Reset temporary configuration state when selecting a new button
+                            gui.temp_config_type = None
+                            gui.temp_config_value = None
+                            gui.save_enabled = False
+                            gui.input_active = False
+                            
+                            needs_redraw = True
                     
                     # Text field handling for URL input
                     elif event.type == pygame.KEYDOWN and gui.input_active:

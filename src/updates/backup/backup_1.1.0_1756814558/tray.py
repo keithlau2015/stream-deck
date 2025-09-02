@@ -107,7 +107,81 @@ def create_tray_icon(config_callback):
         thread = threading.Thread(target=check_thread, daemon=True)
         thread.start()
     
-    # Note: Manual download/install functions removed - now fully automatic
+    def download_update():
+        """Download available update"""
+        if not update_manager or not update_manager.update_available:
+            print("[TRAY] No update available to download")
+            return
+        
+        def download_thread():
+            try:
+                print("[TRAY] Downloading update...")
+                icon.notify("Download Started", f"Downloading version {update_manager.latest_version}...")
+                
+                file_path = update_manager.download_update()
+                if file_path:
+                    icon.notify("Download Complete", "Update downloaded successfully. Check the menu to install.")
+                    # Update menu to show install option
+                    try:
+                        new_menu = create_menu()
+                        icon.menu = new_menu
+                    except:
+                        pass
+                else:
+                    icon.notify("Download Failed", "Failed to download update. Please try again.")
+            except Exception as e:
+                print(f"[TRAY ERROR] Failed to download update: {e}")
+                icon.notify("Download Error", "Failed to download update.")
+        
+        thread = threading.Thread(target=download_thread, daemon=True)
+        thread.start()
+    
+    def install_update():
+        """Install downloaded update"""
+        if not update_manager or not update_manager.update_available:
+            print("[TRAY] No update available to install")
+            return
+        
+        # Check if update has been downloaded
+        if not hasattr(update_manager, 'downloaded_file_path'):
+            # Try to find downloaded file
+            download_path = update_manager.config.get("download_path", "")
+            if update_manager.latest_release_info:
+                assets = update_manager.latest_release_info.get('assets', [])
+                for asset in assets:
+                    filename = asset['name']
+                    file_path = os.path.join(download_path, filename)
+                    if os.path.exists(file_path):
+                        update_manager.downloaded_file_path = file_path
+                        break
+        
+        if not hasattr(update_manager, 'downloaded_file_path') or not os.path.exists(update_manager.downloaded_file_path):
+            icon.notify("Download Required", "Please download the update first.")
+            return
+        
+        def install_thread():
+            try:
+                print("[TRAY] Installing update...")
+                icon.notify("Installing Update", "Installing update. Please wait...")
+                
+                result = update_manager.install_update(update_manager.downloaded_file_path)
+                
+                if result == "restart_required":
+                    icon.notify("Restart Required", "Update installer will run after the application closes.")
+                    # Give user a moment to see the notification, then exit
+                    time.sleep(2)
+                    quit_application(icon)
+                elif result:
+                    icon.notify("Update Complete", "Update installed successfully!")
+                else:
+                    icon.notify("Install Failed", "Failed to install update.")
+                    
+            except Exception as e:
+                print(f"[TRAY ERROR] Failed to install update: {e}")
+                icon.notify("Install Error", "Failed to install update.")
+        
+        thread = threading.Thread(target=install_thread, daemon=True)
+        thread.start()
     
     def show_update_info():
         """Show information about available update"""
@@ -368,11 +442,13 @@ def create_tray_icon(config_callback):
         # Always show check for updates
         items.append(pystray.MenuItem("Check for Updates", check_for_updates_manual))
         
-        # Show update available status (simplified)
+        # Show update available status
         if has_update and latest_ver:
             items.extend([
                 pystray.Menu.SEPARATOR,
-                pystray.MenuItem(f"🔄 Auto-Updating to v{latest_ver}...", show_update_info),
+                pystray.MenuItem(f"⚠️ Update Available: v{latest_ver}", show_update_info),
+                pystray.MenuItem("📥 Download Update", download_update),
+                pystray.MenuItem("🚀 Install Update", install_update),
                 pystray.MenuItem("ℹ️ Release Notes", show_update_info),
             ])
         else:

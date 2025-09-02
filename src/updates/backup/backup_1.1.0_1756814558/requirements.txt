@@ -1,0 +1,26 @@
+# StreamDeck V2 Dependencies
+# Core GUI and Graphics
+pygame>=2.1.0
+
+# System Tray Support
+pystray>=0.19.0
+
+# Image Processing (required by pystray)
+Pillow>=8.0.0
+
+# Clipboard Operations
+pyperclip>=1.8.0
+
+# Serial Communication (Arduino)
+pyserial>=3.5
+
+# Build tool
+pyinstaller>=5.0.0
+
+# Auto-update system dependencies
+requests>=2.25.0
+packaging>=21.0.0
+
+# Additional utilities that may be needed
+# Note: tkinter, webbrowser, subprocess, json, os, sys, time, ctypes, threading
+# are part of Python standard library and don't need to be installed
