@@ -15,11 +15,173 @@ import shutil
 import subprocess
 from datetime import datetime, timedelta
 
-# Current version of the application
-CURRENT_VERSION = "1.1.0"  # Set to lower version to test auto-update
+# GitHub repository information
 GITHUB_REPO = "keithlau2015/stream-deck"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 UPDATE_CHECK_INTERVAL = 3600  # Check for updates every hour (in seconds)
+
+def get_current_version_dynamic():
+    """
+    Dynamically determine the current version from multiple sources
+    """
+    app_dir = get_app_data_dir()
+    
+    # Method 1: Try to read from version.txt file
+    version_file = os.path.join(app_dir, "version.txt")
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, 'r', encoding='utf-8') as f:
+                file_version = f.read().strip()
+                if file_version:
+                    print(f"[VERSION] Found version in version.txt: {file_version}")
+                    return file_version
+        except Exception as e:
+            print(f"[VERSION] Failed to read version.txt: {e}")
+    
+    # Method 2: Try to get version from installed update info
+    update_info_file = os.path.join(app_dir, "update_info.json")
+    if os.path.exists(update_info_file):
+        try:
+            with open(update_info_file, 'r', encoding='utf-8') as f:
+                update_info = json.load(f)
+                installed_version = update_info.get("installed_version")
+                if installed_version:
+                    print(f"[VERSION] Found version in update_info.json: {installed_version}")
+                    return installed_version
+        except Exception as e:
+            print(f"[VERSION] Failed to read update_info.json: {e}")
+    
+    # Method 3: Try to get version from executable properties (Windows)
+    if sys.platform == "win32" and getattr(sys, 'frozen', False):
+        try:
+            import win32api
+            exe_path = sys.executable
+            info = win32api.GetFileVersionInfo(exe_path, "\\")
+            ms = info['FileVersionMS']
+            ls = info['FileVersionLS']
+            exe_version = f"{win32api.HIWORD(ms)}.{win32api.LOWORD(ms)}.{win32api.HIWORD(ls)}.{win32api.LOWORD(ls)}"
+            if exe_version != "0.0.0.0":
+                print(f"[VERSION] Found version from executable: {exe_version}")
+                return exe_version
+        except Exception as e:
+            print(f"[VERSION] Failed to get executable version: {e}")
+    
+    # Method 4: Check the most recent backup to infer current version
+    backup_dir = os.path.join(app_dir, "updates", "backup")
+    if os.path.exists(backup_dir):
+        try:
+            backup_folders = [f for f in os.listdir(backup_dir) if f.startswith("backup_")]
+            if backup_folders:
+                # Sort by modification time (most recent first)
+                backup_folders.sort(key=lambda x: os.path.getmtime(os.path.join(backup_dir, x)), reverse=True)
+                latest_backup = backup_folders[0]
+                # Extract version from backup folder name like "backup_1.1.5_1756817956"
+                if "_" in latest_backup:
+                    parts = latest_backup.split("_")
+                    if len(parts) >= 2:
+                        backup_version = parts[1]
+                        # Use the backup version directly - it represents what was installed before the backup
+                        try:
+                            backup_parsed = version.parse(backup_version)
+                            # The backup version is what we had before, so current might be this or higher
+                            # But we can't assume, so let's just use it as a reference point
+                            print(f"[VERSION] Found backup version reference: {backup_version}")
+                            # Don't return here, continue to other methods for more accurate detection
+                        except:
+                            pass
+        except Exception as e:
+            print(f"[VERSION] Failed to check backup versions: {e}")
+    
+    # Method 5: Fallback - try to detect from last successful update
+    config_file = os.path.join(app_dir, "update_config.json")
+    if os.path.exists(config_file):
+        try:
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+                last_processed = config.get("last_processed_version")
+                if last_processed and last_processed.strip():
+                    # Validate it's a proper version format
+                    try:
+                        from packaging import version
+                        version.parse(last_processed)  # Will raise exception if invalid
+                        print(f"[VERSION] Using last processed version: {last_processed}")
+                        return last_processed
+                    except Exception:
+                        print(f"[VERSION] Invalid version format in config: {last_processed}")
+                        # Continue to next method
+        except Exception as e:
+            print(f"[VERSION] Failed to read update config: {e}")
+    
+    # Method 6: Try to get version from GitHub API as last resort
+    try:
+        print("[VERSION] No local version found, checking GitHub for latest release...")
+        import requests
+        response = requests.get("https://api.github.com/repos/keithlau2015/stream-deck/releases/latest", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            github_version = data.get('tag_name', '').lstrip('v')
+            if github_version:
+                print(f"[VERSION] Using latest GitHub version: {github_version}")
+                # Save this version for future use
+                try:
+                    save_current_version(github_version)
+                except:
+                    pass
+                return github_version
+    except Exception as e:
+        print(f"[VERSION] Failed to get version from GitHub: {e}")
+    
+    # Method 7: Return None if all methods fail - let the application handle this
+    print("[VERSION] Could not determine current version from any source")
+    return None
+
+# Get the current version dynamically
+_detected_version = get_current_version_dynamic()
+if _detected_version is None:
+    print("[VERSION WARNING] Could not detect current version. Auto-update will be disabled until version is determined.")
+    CURRENT_VERSION = "unknown"
+else:
+    CURRENT_VERSION = _detected_version
+
+def save_current_version(new_version):
+    """
+    Save the current version to a file for future detection
+    """
+    app_dir = get_app_data_dir()
+    
+    # Save to version.txt
+    version_file = os.path.join(app_dir, "version.txt")
+    try:
+        with open(version_file, 'w', encoding='utf-8') as f:
+            f.write(new_version)
+        print(f"[VERSION] Saved current version to version.txt: {new_version}")
+    except Exception as e:
+        print(f"[VERSION ERROR] Failed to save version.txt: {e}")
+    
+    # Save to update_info.json
+    update_info_file = os.path.join(app_dir, "update_info.json")
+    try:
+        update_info = {
+            "installed_version": new_version,
+            "installation_date": datetime.now().isoformat(),
+            "installation_method": "auto_update"
+        }
+        
+        # Try to preserve existing info
+        if os.path.exists(update_info_file):
+            try:
+                with open(update_info_file, 'r', encoding='utf-8') as f:
+                    existing_info = json.load(f)
+                    existing_info.update(update_info)
+                    update_info = existing_info
+            except:
+                pass
+        
+        with open(update_info_file, 'w', encoding='utf-8') as f:
+            json.dump(update_info, f, indent=2, ensure_ascii=False)
+        print(f"[VERSION] Saved update info: {new_version}")
+    except Exception as e:
+        print(f"[VERSION ERROR] Failed to save update_info.json: {e}")
 
 def get_app_data_dir():
     """Get the directory where the application should store its data files"""
@@ -63,6 +225,35 @@ class UpdateManager:
         os.makedirs(self.config["download_path"], exist_ok=True)
         
         print(f"[UPDATE] UpdateManager initialized - Current version: {self.current_version}")
+        
+        # If version is unknown, try to determine it immediately
+        if self.current_version == "unknown":
+            print("[UPDATE] Current version is unknown, attempting to determine from GitHub...")
+            self.attempt_version_discovery()
+    
+    def attempt_version_discovery(self):
+        """Attempt to discover current version when it's unknown"""
+        try:
+            # Try to get the latest version from GitHub
+            response = requests.get(GITHUB_API_URL, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                github_version = data.get('tag_name', '').lstrip('v')
+                if github_version:
+                    print(f"[UPDATE] Discovered version from GitHub: {github_version}")
+                    # Update our current version
+                    global CURRENT_VERSION
+                    CURRENT_VERSION = github_version
+                    self.current_version = github_version
+                    # Save for future use
+                    save_current_version(github_version)
+                    print("[UPDATE] Version discovery successful, auto-update is now enabled")
+                    return True
+        except Exception as e:
+            print(f"[UPDATE] Version discovery failed: {e}")
+        
+        print("[UPDATE] Could not discover version, auto-update remains disabled")
+        return False
     
     def load_config(self):
         """Load update configuration from file"""
@@ -107,6 +298,20 @@ class UpdateManager:
     
     def check_for_updates(self, manual=False):
         """Check for available updates from GitHub releases"""
+        # Skip update check if current version is unknown
+        if self.current_version == "unknown":
+            print("[UPDATE] Current version is unknown, cannot check for updates")
+            if manual:
+                # Try to discover version first
+                if self.attempt_version_discovery():
+                    print("[UPDATE] Version discovered, retrying update check...")
+                    return self.check_for_updates(manual=True)
+                else:
+                    self.notify_callbacks("check_error", {
+                        "error": "Cannot check for updates: current version is unknown. Please set version manually."
+                    })
+            return False
+        
         try:
             print(f"[UPDATE] Checking for updates... (manual: {manual})")
             print(f"[UPDATE] Current version: {self.current_version}")
@@ -135,15 +340,37 @@ class UpdateManager:
             self.save_config()
             
             # Compare versions with detailed logging
-            print(f"[UPDATE] Comparing versions: {self.current_version} vs {self.latest_version}")
-            current_parsed = version.parse(self.current_version)
-            latest_parsed = version.parse(self.latest_version)
+            print(f"[UPDATE] Comparing versions: '{self.current_version}' vs '{self.latest_version}'")
             
-            print(f"[UPDATE] Parsed current: {current_parsed}")
-            print(f"[UPDATE] Parsed latest: {latest_parsed}")
+            try:
+                current_parsed = version.parse(self.current_version)
+                latest_parsed = version.parse(self.latest_version)
+                
+                print(f"[UPDATE] Parsed current: {current_parsed} (type: {type(current_parsed)})")
+                print(f"[UPDATE] Parsed latest: {latest_parsed} (type: {type(latest_parsed)})")
+                
+                # Normalize versions for comparison
+                current_normalized = f"{current_parsed.major}.{current_parsed.minor}.{current_parsed.micro}"
+                latest_normalized = f"{latest_parsed.major}.{latest_parsed.minor}.{latest_parsed.micro}"
+                
+                print(f"[UPDATE] Normalized current: {current_normalized}")
+                print(f"[UPDATE] Normalized latest: {latest_normalized}")
+                
+                is_newer = latest_parsed > current_parsed
+                print(f"[UPDATE] Is newer version available? {is_newer}")
+                
+            except Exception as parse_error:
+                print(f"[UPDATE ERROR] Version parsing failed: {parse_error}")
+                print(f"[UPDATE] Raw versions - Current: '{self.current_version}', Latest: '{self.latest_version}'")
+                # Fallback to string comparison
+                is_newer = self.latest_version != self.current_version
+                print(f"[UPDATE] Using string comparison fallback: {is_newer}")
             
-            if latest_parsed > current_parsed:
-                print(f"[UPDATE] Update available! {latest_parsed} > {current_parsed}")
+            if is_newer:
+                try:
+                    print(f"[UPDATE] Update available! {latest_parsed} > {current_parsed}")
+                except:
+                    print(f"[UPDATE] Update available! '{self.latest_version}' > '{self.current_version}'")
                 # Check if this version was ignored
                 if self.config["ignored_version"] != self.latest_version:
                     # Check if we've already processed this version
@@ -464,6 +691,11 @@ class UpdateManager:
                 return "restart_required"
             
             print("[UPDATE] Installation completed successfully")
+            
+            # Update the current version and save it
+            self.current_version = self.latest_version
+            save_current_version(self.latest_version)
+            
             self.notify_callbacks("install_completed", {
                 "version": self.latest_version,
                 "backup_path": backup_path
@@ -560,3 +792,46 @@ def get_latest_version_info():
         "available": update_manager.update_available,
         "release_info": update_manager.latest_release_info
     }
+
+def set_current_version_manually(version_string):
+    """
+    Manually set the current version (for fixing version detection issues)
+    """
+    global CURRENT_VERSION
+    try:
+        # Validate version format
+        version.parse(version_string)
+        
+        # Update global version
+        CURRENT_VERSION = version_string
+        update_manager.current_version = version_string
+        
+        # Save to files
+        save_current_version(version_string)
+        
+        print(f"[VERSION] Manually set current version to: {version_string}")
+        return True
+    except Exception as e:
+        print(f"[VERSION ERROR] Failed to set version manually: {e}")
+        return False
+
+def reset_version_detection():
+    """
+    Reset version detection by clearing all version files
+    """
+    app_dir = get_app_data_dir()
+    
+    files_to_remove = [
+        os.path.join(app_dir, "version.txt"),
+        os.path.join(app_dir, "update_info.json")
+    ]
+    
+    for file_path in files_to_remove:
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"[VERSION] Removed: {file_path}")
+        except Exception as e:
+            print(f"[VERSION ERROR] Failed to remove {file_path}: {e}")
+    
+    print("[VERSION] Version detection reset. Restart the application to detect version dynamically.")

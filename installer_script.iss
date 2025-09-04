@@ -1,6 +1,6 @@
 [Setup]
 AppName=StreamDeck
-AppVersion=2.0
+AppVersion=2.x
 AppPublisher=StreamDeck Team
 AppPublisherURL=https://github.com/LucaDiLorenzo98/cd_v2_script
 AppSupportURL=https://github.com/LucaDiLorenzo98/cd_v2_script
@@ -28,7 +28,7 @@ DisableFinishedPage=no
 ShowLanguageDialog=no
 UninstallDisplayIcon={app}\StreamDeck.exe
 UninstallDisplayName=StreamDeck
-VersionInfoVersion=2.0.0.0
+VersionInfoVersion=2.9.9.9
 VersionInfoCompany=StreamDeck Team
 VersionInfoDescription=StreamDeck - Customizable Macro Deck
 VersionInfoCopyright=© 2024 StreamDeck Team
@@ -65,6 +65,7 @@ Filename: "{app}\StreamDeck.exe"; Description: "{cm:LaunchProgram,StreamDeck}"; 
 var
   WelcomePage: TOutputMsgWizardPage;
   ConfigPage: TInputQueryWizardPage;
+  VersionFixPage: TOutputMsgWizardPage;
   ArduinoPort: String;
   BaudRate: String;
   VolumeEnabled: Boolean;
@@ -74,6 +75,9 @@ var
   VolumeCheckBox: TCheckBox;
   MediaCheckBox: TCheckBox;
   DebugCheckBox: TCheckBox;
+  PreviousVersion: String;
+  IsUpgrade: Boolean;
+  VersionIssueDetected: Boolean;
 
 function GetBooleanString(Value: Boolean): String;
 begin
@@ -83,32 +87,284 @@ begin
     Result := 'false';
 end;
 
-procedure InitializeWizard;
+function DetectPreviousVersion(): String;
+var
+  VersionFile, UpdateInfoFile, ConfigFile: String;
+  VersionContent, UpdateContent, ConfigContent: String;
+  I: Integer;
+  Lines: TArrayOfString;
 begin
-  // Create welcome page with custom message
+  Result := '';
+  
+  // Method 1: Check version.txt
+  VersionFile := ExpandConstant('{app}\version.txt');
+  if FileExists(VersionFile) then
+  begin
+    if LoadStringFromFile(VersionFile, VersionContent) then
+    begin
+      Result := Trim(VersionContent);
+      if Result <> '' then
+        Exit;
+    end;
+  end;
+  
+  // Method 2: Check update_info.json for installed_version
+  UpdateInfoFile := ExpandConstant('{app}\update_info.json');
+  if FileExists(UpdateInfoFile) then
+  begin
+    if LoadStringFromFile(UpdateInfoFile, UpdateContent) then
+    begin
+      // Simple JSON parsing for "installed_version"
+      I := Pos('"installed_version":', UpdateContent);
+      if I > 0 then
+      begin
+        UpdateContent := Copy(UpdateContent, I + 20, Length(UpdateContent));
+        I := Pos('"', UpdateContent);
+        if I > 0 then
+        begin
+          UpdateContent := Copy(UpdateContent, I + 1, Length(UpdateContent));
+          I := Pos('"', UpdateContent);
+          if I > 0 then
+          begin
+            Result := Copy(UpdateContent, 1, I - 1);
+            if Result <> '' then
+              Exit;
+          end;
+        end;
+      end;
+    end;
+  end;
+  
+  // Method 3: Check update_config.json for last_processed_version
+  ConfigFile := ExpandConstant('{app}\update_config.json');
+  if FileExists(ConfigFile) then
+  begin
+    if LoadStringFromFile(ConfigFile, ConfigContent) then
+    begin
+      // Simple JSON parsing for "last_processed_version"
+      I := Pos('"last_processed_version":', ConfigContent);
+      if I > 0 then
+      begin
+        ConfigContent := Copy(ConfigContent, I + 25, Length(ConfigContent));
+        I := Pos('"', ConfigContent);
+        if I > 0 then
+        begin
+          ConfigContent := Copy(ConfigContent, I + 1, Length(ConfigContent));
+          I := Pos('"', ConfigContent);
+          if I > 0 then
+          begin
+            Result := Copy(ConfigContent, 1, I - 1);
+            if (Result <> '') then
+              Exit;
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
+function CheckVersionIssue(): Boolean;
+begin
+  Result := False;
+  
+  // Check if previous version indicates a potential issue
+  // (empty version or version files missing despite app being installed)
+  if (PreviousVersion = '') then
+  begin
+    // Check if app files exist but no version detected
+    if FileExists(ExpandConstant('{app}\main.py')) or 
+       FileExists(ExpandConstant('{app}\gui.py')) or
+       DirExists(ExpandConstant('{app}\src')) then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+  
+  // Check if any StreamDeck files exist but no proper version tracking
+  if FileExists(ExpandConstant('{app}\StreamDeck.exe')) or FileExists(ExpandConstant('{app}\main.py')) then
+  begin
+    // If app exists but no version was detected, there's likely an issue
+    if PreviousVersion = '' then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+  
+  // Check if update config exists with problematic settings
+  if FileExists(ExpandConstant('{app}\update_config.json')) then
+  begin
+    // If config exists but version detection failed, there might be an issue
+    if PreviousVersion = '' then
+      Result := True;
+  end;
+end;
+
+function GetLatestVersionFromGitHub(): String;
+var
+  WinHttpReq: Variant;
+  Response: String;
+  TagPos, StartPos, EndPos: Integer;
+begin
+  Result := '1.0.0'; // Minimal fallback version if GitHub fails
+  
+  try
+    // Create WinHTTP request object
+    WinHttpReq := CreateOleObject('WinHttp.WinHttpRequest.5.1');
+    WinHttpReq.Open('GET', 'https://api.github.com/repos/keithlau2015/stream-deck/releases/latest', False);
+    WinHttpReq.SetRequestHeader('User-Agent', 'StreamDeck-Installer');
+    WinHttpReq.Send();
+    
+    if WinHttpReq.Status = 200 then
+    begin
+      Response := WinHttpReq.ResponseText;
+      
+      // Simple JSON parsing to extract tag_name
+      TagPos := Pos('"tag_name":', Response);
+      if TagPos > 0 then
+      begin
+        StartPos := Pos('"', Response, TagPos + 11);
+        if StartPos > 0 then
+        begin
+          EndPos := Pos('"', Response, StartPos + 1);
+          if EndPos > 0 then
+          begin
+            Result := Copy(Response, StartPos + 1, EndPos - StartPos - 1);
+            // Remove 'v' prefix if present
+            if (Length(Result) > 0) and (Result[1] = 'v') then
+              Result := Copy(Result, 2, Length(Result) - 1);
+          end;
+        end;
+      end;
+    end;
+  except
+    // If anything fails, use minimal fallback version
+    Result := '1.0.0';
+  end;
+end;
+
+procedure FixVersionIssue();
+var
+  VersionFile, UpdateInfoFile: String;
+  UpdateContent: String;
+  CurrentVersion: String;
+begin
+  // Get the latest version from GitHub instead of hardcoding
+  CurrentVersion := GetLatestVersionFromGitHub();
+  
+  // Create/update version.txt
+  VersionFile := ExpandConstant('{app}\version.txt');
+  SaveStringToFile(VersionFile, CurrentVersion, False);
+  
+  // Create/update update_info.json with comprehensive information
+  UpdateInfoFile := ExpandConstant('{app}\update_info.json');
+  UpdateContent := '{' + #13#10 +
+    '  "installed_version": "' + CurrentVersion + '",' + #13#10 +
+    '  "installation_date": "' + GetDateTimeString('yyyy-mm-dd"T"hh:nn:ss', #0, #0) + '",' + #13#10 +
+    '  "installation_method": "installer_auto_fix",' + #13#10 +
+    '  "version_fixed_by_installer": true,' + #13#10 +
+    '  "previous_version_detected": "' + PreviousVersion + '",' + #13#10 +
+    '  "fix_applied": true,' + #13#10 +
+    '  "installer_version": "' + CurrentVersion + '",' + #13#10 +
+    '  "notes": "Automatically fixed version detection issue during installation"' + #13#10 +
+    '}';
+  SaveStringToFile(UpdateInfoFile, UpdateContent, False);
+end;
+
+procedure InitializeWizard;
+var
+  WelcomeMessage: String;
+  LatestVersion: String;
+begin
+  // Get the latest version from GitHub
+  LatestVersion := GetLatestVersionFromGitHub();
+  
+  // Detect previous installation
+  PreviousVersion := DetectPreviousVersion();
+  IsUpgrade := (PreviousVersion <> '');
+  VersionIssueDetected := CheckVersionIssue();
+  
+  // Create welcome message based on installation type
+  if IsUpgrade then
+  begin
+    if VersionIssueDetected then
+      WelcomeMessage := 'StreamDeck Update & Auto-Fix Setup' + #13#10 + #13#10 +
+        'Existing installation detected!' + #13#10 +
+        'Previous version: ' + PreviousVersion + #13#10 +
+        'Latest available: ' + LatestVersion + #13#10 + #13#10 +
+        '🔧 AUTO-FIX: This installer will automatically:' + #13#10 +
+        '• Update to StreamDeck v' + LatestVersion + #13#10 +
+        '• Fix the "always updating" issue' + #13#10 +
+        '• Repair version detection problems' + #13#10 +
+        '• Keep ALL your existing settings' + #13#10 + #13#10 +
+        '✅ Your button configs and GPIO settings will be preserved!' + #13#10 +
+        '✅ No more constant update notifications!' + #13#10 +
+        '✅ Auto-updates will work correctly!'
+    else
+      WelcomeMessage := 'StreamDeck Update Setup' + #13#10 + #13#10 +
+        'Existing installation detected!' + #13#10 +
+        'Previous version: ' + PreviousVersion + #13#10 +
+        'Updating to: ' + LatestVersion + #13#10 + #13#10 +
+        'This will update StreamDeck to version ' + LatestVersion + ' while preserving' + #13#10 +
+        'all your existing settings and configurations.' + #13#10 + #13#10 +
+        '✅ Button configurations will be kept' + #13#10 +
+        '✅ GPIO settings will be preserved' + #13#10 +
+        '✅ All preferences will remain intact';
+  end
+  else
+  begin
+    WelcomeMessage := 'Welcome to StreamDeck v' + LatestVersion + '!' + #13#10 + #13#10 +
+      'StreamDeck is a customizable macro deck that allows you to configure up to 9 buttons to launch websites or executable files with a click.' + #13#10 + #13#10 +
+      'Key Features:' + #13#10 +
+      '• System tray integration' + #13#10 +
+      '• Arduino hardware support' + #13#10 +
+      '• Volume and media controls' + #13#10 +
+      '• Background operation' + #13#10 +
+      '• Auto-update system' + #13#10 + #13#10 +
+      'Installing version: ' + LatestVersion + #13#10 + #13#10 +
+      'Click Next to continue with the installation.';
+  end;
+
+  // Create welcome page with dynamic message
   WelcomePage := CreateOutputMsgPage(wpWelcome,
     'Welcome to StreamDeck Setup', 'This will install StreamDeck on your computer.',
-    'StreamDeck is a customizable macro deck that allows you to configure up to 9 buttons to launch websites or executable files with a click.' + #13#10 + #13#10 +
-    'Features:' + #13#10 +
-    '• System tray integration' + #13#10 +
-    '• Arduino hardware support' + #13#10 +
-    '• Volume and media controls' + #13#10 +
-    '• Background operation' + #13#10 + #13#10 +
-    'Click Next to continue with the installation.');
+    WelcomeMessage);
 
-  // Create GPIO configuration page
-  ConfigPage := CreateInputQueryPage(wpSelectDir,
-    'GPIO Configuration', 'Configure your Arduino connection settings',
-    'Please specify the Arduino connection settings. You can change these later by opening GPIO Settings from the system tray.');
+  // Create version fix information page (only shown if needed)
+  if VersionIssueDetected then
+  begin
+    VersionFixPage := CreateOutputMsgPage(wpSelectDir,
+      'Auto-Fix: Version Detection Issue', 'Resolving the "always updating" problem',
+      '🔍 PROBLEM DETECTED:' + #13#10 +
+      'Your StreamDeck installation has version detection issues, causing:' + #13#10 +
+      '• Constant "update available" notifications' + #13#10 +
+      '• Auto-update system repeatedly downloading' + #13#10 +
+      '• Version detection not working properly' + #13#10 + #13#10 +
+      '🔧 AUTO-FIX IN PROGRESS:' + #13#10 +
+      'This installer will automatically resolve the issue by:' + #13#10 +
+      '• Creating proper version tracking files (version.txt, update_info.json)' + #13#10 +
+      '• Setting the correct version number (' + LatestVersion + ')' + #13#10 +
+      '• Ensuring auto-updates work correctly in the future' + #13#10 + #13#10 +
+      '✅ RESULT: No more update notifications spam!' + #13#10 +
+      '✅ Your button configs and settings will be preserved!' + #13#10 + #13#10 +
+      'Click Next to continue the automatic fix...');
+  end;
+
+  // Create GPIO configuration page (skip for upgrades with existing config)
+  if not IsUpgrade or not FileExists(ExpandConstant('{app}\gpio_config.json')) then
+  begin
+    ConfigPage := CreateInputQueryPage(wpSelectDir,
+      'GPIO Configuration', 'Configure your Arduino connection settings',
+      'Please specify the Arduino connection settings. You can change these later by opening GPIO Settings from the system tray.');
+      
+    ConfigPage.Add('Arduino COM Port (e.g., COM3, COM7):', False);
+    ConfigPage.Add('Baud Rate (default: 9600):', False);
     
-  ConfigPage.Add('Arduino COM Port (e.g., COM3, COM7):', False);
-  ConfigPage.Add('Baud Rate (default: 9600):', False);
-  
-  // Set default values
-  ConfigPage.Values[0] := 'COM7';
-  ConfigPage.Values[1] := '9600';
-    
-  // We'll create all the controls manually in CreateConfigControls procedure
+    // Set default values
+    ConfigPage.Values[0] := 'COM7';
+    ConfigPage.Values[1] := '9600';
+  end;
 end;
 
 procedure CreateConfigControls;
@@ -158,7 +414,8 @@ end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  if CurPageID = ConfigPage.ID then
+  // Only create config controls if ConfigPage was created (new installation or missing config)
+  if Assigned(ConfigPage) and (CurPageID = ConfigPage.ID) then
   begin
     CreateConfigControls;
   end;
@@ -168,7 +425,8 @@ function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
   
-  if CurPageID = ConfigPage.ID then
+  // Only validate config page if it was created and we're on it
+  if Assigned(ConfigPage) and (CurPageID = ConfigPage.ID) then
   begin
     // Get values from input query page
     ArduinoPort := ConfigPage.Values[0];
@@ -199,38 +457,76 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   ConfigFile: String;
   ConfigContent: String;
+  ExistingConfigContent: String;
 begin
   if CurStep = ssPostInstall then
   begin
-    // Create gpio_config.json with user settings
-    ConfigFile := ExpandConstant('{app}\gpio_config.json');
-    ConfigContent := '{' + #13#10 +
-      '    "arduino": {' + #13#10 +
-      '        "port": "' + ArduinoPort + '",' + #13#10 +
-      '        "baudrate": ' + BaudRate + ',' + #13#10 +
-      '        "timeout": 1' + #13#10 +
-      '    },' + #13#10 +
-      '    "volume": {' + #13#10 +
-      '        "enabled": ' + GetBooleanString(VolumeEnabled) + ',' + #13#10 +
-      '        "default_value": 0' + #13#10 +
-      '    },' + #13#10 +
-      '    "media": {' + #13#10 +
-      '        "enabled": ' + GetBooleanString(MediaEnabled) + #13#10 +
-      '    },' + #13#10 +
-      '    "debug": {' + #13#10 +
-      '        "enabled": ' + GetBooleanString(DebugEnabled) + ',' + #13#10 +
-      '        "log_level": "INFO"' + #13#10 +
-      '    }' + #13#10 +
-      '}';
+    // Always fix version issue first
+    FixVersionIssue();
     
-    SaveStringToFile(ConfigFile, ConfigContent, False);
+    // Handle GPIO configuration
+    ConfigFile := ExpandConstant('{app}\gpio_config.json');
+    
+    // Only create new config if it doesn't exist or if this is a new installation
+    if not FileExists(ConfigFile) or not IsUpgrade then
+    begin
+      // Use default values if ConfigPage wasn't shown (upgrade scenario)
+      if not Assigned(ConfigPage) then
+      begin
+        ArduinoPort := 'COM7';
+        BaudRate := '9600';
+        VolumeEnabled := True;
+        MediaEnabled := True;
+        DebugEnabled := True;
+      end;
+      
+      ConfigContent := '{' + #13#10 +
+        '    "arduino": {' + #13#10 +
+        '        "port": "' + ArduinoPort + '",' + #13#10 +
+        '        "baudrate": ' + BaudRate + ',' + #13#10 +
+        '        "timeout": 1' + #13#10 +
+        '    },' + #13#10 +
+        '    "volume": {' + #13#10 +
+        '        "enabled": ' + GetBooleanString(VolumeEnabled) + ',' + #13#10 +
+        '        "default_value": 0' + #13#10 +
+        '    },' + #13#10 +
+        '    "media": {' + #13#10 +
+        '        "enabled": ' + GetBooleanString(MediaEnabled) + #13#10 +
+        '    },' + #13#10 +
+        '    "debug": {' + #13#10 +
+        '        "enabled": ' + GetBooleanString(DebugEnabled) + ',' + #13#10 +
+        '        "log_level": "INFO"' + #13#10 +
+        '    }' + #13#10 +
+        '}';
+      
+      SaveStringToFile(ConfigFile, ConfigContent, False);
+    end
+    else
+    begin
+      // For upgrades with existing config, just log that we preserved it
+      // The config is already there, no need to overwrite
+    end;
     
     // Create default pref.json if it doesn't exist
     if not FileExists(ExpandConstant('{app}\pref.json')) then
     begin
       SaveStringToFile(ExpandConstant('{app}\pref.json'), 
-        '{"1":{"type":"none","value":""},"2":{"type":"none","value":""},"3":{"type":"none","value":""},"4":{"type":"none","value":""},"5":{"type":"none","value":""},"6":{"type":"none","value":""},"7":{"type":"none","value":""},"8":{"type":"none","value":""},"9":{"type":"none","value":""}}', 
+        '{"BUTTON_1":{"type":"none","value":""},"BUTTON_2":{"type":"none","value":""},"BUTTON_3":{"type":"none","value":""},"BUTTON_4":{"type":"none","value":""},"BUTTON_5":{"type":"none","value":""},"BUTTON_6":{"type":"none","value":""},"BUTTON_7":{"type":"none","value":""},"BUTTON_8":{"type":"none","value":""},"BUTTON_9":{"type":"none","value":""}}', 
         False);
+    end;
+    
+    // Show completion message for version fix
+    if VersionIssueDetected then
+    begin
+      MsgBox('🎉 SUCCESS: Version Issue Fixed!' + #13#10 + #13#10 +
+             '✅ StreamDeck now correctly detects version ' + LatestVersion + #13#10 +
+             '✅ Auto-update system has been repaired' + #13#10 +
+             '✅ No more constant "update available" notifications' + #13#10 +
+             '✅ All your existing settings have been preserved' + #13#10 + #13#10 +
+             'The following files were created to fix the issue:' + #13#10 +
+             '• version.txt (tracks current version)' + #13#10 +
+             '• update_info.json (installation details)' + #13#10 + #13#10 +
+             'You can now use StreamDeck normally without update issues!', mbInformation, MB_OK);
     end;
   end;
 end;
