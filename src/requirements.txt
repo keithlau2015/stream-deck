@@ -22,5 +22,12 @@ requests>=2.25.0
 packaging>=21.0.0
 
 # Additional utilities that may be needed
-# Note: tkinter, webbrowser, subprocess, json, os, sys, time, ctypes, threading
+# Note: webbrowser, subprocess, json, os, sys, time, ctypes, threading
 # are part of Python standard library and don't need to be installed
+# 
+# IMPORTANT: tkinter is part of Python standard library but may not be included
+# in some Python distributions (especially embedded/minimal installations).
+# If you get "ModuleNotFoundError: No module named 'tkinter'", you may need to:
+# 1. Install tkinter separately: pip install tk
+# 2. Or reinstall Python with tkinter support
+# 3. Or use a different Python distribution that includes tkinter

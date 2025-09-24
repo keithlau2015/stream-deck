@@ -1,0 +1,18 @@
+{
+    "arduino": {
+        "port": "COM7",
+        "baudrate": 9600,
+        "timeout": 1
+    },
+    "volume": {
+        "enabled": true,
+        "default_value": 0
+    },
+    "media": {
+        "enabled": true
+    },
+    "debug": {
+        "enabled": true,
+        "log_level": "INFO"
+    }
+}
