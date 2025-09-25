@@ -4,6 +4,23 @@ import copy
 import tkinter as tk
 from tkinter import ttk, messagebox
 import sys
+import serial.tools.list_ports
+
+def get_resource_path(relative_path):
+    """Get the absolute path to a resource, works for PyInstaller bundles and source"""
+    try:
+        # If running from PyInstaller bundle
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, relative_path)
+        
+        # If running from source
+        if __file__:
+            return os.path.join(os.path.dirname(os.path.dirname(__file__)), relative_path)
+        
+        # If running from installed app
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    except:
+        return relative_path
 
 def get_app_data_dir():
     """Get the directory where the application should store its data files"""
@@ -78,6 +95,18 @@ def validate_com_port(port):
     except ValueError:
         return False
 
+def get_available_ports():
+    """Get list of available COM ports"""
+    try:
+        ports = serial.tools.list_ports.comports()
+        available_ports = []
+        for port in ports:
+            available_ports.append(port.device)
+        return available_ports if available_ports else ["COM1", "COM3", "COM7"]  # Fallback ports
+    except Exception as e:
+        print(f"[GPIO] Warning: Could not detect COM ports: {e}")
+        return ["COM1", "COM3", "COM7"]  # Fallback ports
+
 def validate_baudrate(baudrate):
     """Validate baudrate value"""
     valid_rates = [9600, 19200, 38400, 57600, 115200]
@@ -91,15 +120,24 @@ class GPIOConfigGUI:
     def __init__(self):
         # Create main window
         self.root = tk.Tk()
-        self.root.title("StreamDeck V2 - GPIO Settings")
-        self.root.geometry("520x450")
+        self.root.title("StreamDeck - GPIO Settings")
+        self.root.geometry("620x480")
         self.root.resizable(False, False)
         
         # Set window icon (if available)
         try:
-            self.root.iconbitmap(default='icon.ico')
-        except:
-            pass  # Ignore if icon file doesn't exist
+            from icon_utils import set_tkinter_window_icon
+            set_tkinter_window_icon(self.root)
+        except ImportError:
+            print("[GPIO] Icon utils not available, using fallback")
+            # Fallback if icon_utils is not available
+            try:
+                icon_path = get_resource_path(os.path.join('assets', 'icon.ico'))
+                if os.path.exists(icon_path):
+                    self.root.iconbitmap(default=icon_path)
+                    print(f"[GPIO] Window icon set from: {icon_path}")
+            except Exception as e:
+                print(f"[GPIO WARNING] Failed to set window icon: {e}")
         
         # Configure dark theme colors
         self.bg_color = "#282828"
@@ -154,6 +192,12 @@ class GPIOConfigGUI:
                        relief='solid',
                        bordercolor='#555555')
         
+        # Frame without border for input containers
+        style.configure('Clean.TFrame',
+                       background=self.panel_color,
+                       borderwidth=0,
+                       relief='flat')
+        
         style.configure('Main.TFrame',
                        background=self.bg_color)
         
@@ -173,7 +217,15 @@ class GPIOConfigGUI:
                        borderwidth=1,
                        selectbackground=self.accent_color,
                        selectforeground='white',
-                       arrowcolor=self.text_color)
+                       arrowcolor=self.text_color,
+                       insertcolor=self.text_color)
+        
+        # Configure the dropdown part of combobox
+        style.map('Dark.TCombobox',
+                 fieldbackground=[('readonly', '#505050')],
+                 selectbackground=[('readonly', '#505050')],
+                 focuscolor=[('!focus', 'none')],
+                 bordercolor=[('focus', self.accent_color)])
         
         style.configure('Dark.TCheckbutton',
                        background=self.panel_color,
@@ -195,6 +247,12 @@ class GPIOConfigGUI:
                        borderwidth=1,
                        focuscolor='none')
         
+        style.configure('Dark.TButton',
+                       background='#404040',
+                       foreground='white',
+                       borderwidth=1,
+                       focuscolor='none')
+        
         style.map('Dark.TEntry',
                  focuscolor=[('!focus', 'none')],
                  bordercolor=[('focus', self.accent_color)])
@@ -211,6 +269,10 @@ class GPIOConfigGUI:
                  background=[('active', '#777777')],
                  relief=[('pressed', 'flat')])
         
+        style.map('Dark.TButton',
+                 background=[('active', '#555555')],
+                 relief=[('pressed', 'flat')])
+        
         # Main container with proper background
         main_frame = ttk.Frame(self.root, style='Main.TFrame')
         main_frame.pack(fill='both', expand=True, padx=20, pady=10)
@@ -225,34 +287,60 @@ class GPIOConfigGUI:
         
         ttk.Label(arduino_frame, text="Arduino Connection", style='Section.TLabel').pack(anchor='w', pady=(0, 10))
         
-        # Input fields frame with better spacing
-        inputs_frame = ttk.Frame(arduino_frame, style='Dark.TFrame')
-        inputs_frame.pack(fill='x', pady=5)
+        # Use grid layout for better control - no border to avoid double borders
+        inputs_frame = ttk.Frame(arduino_frame, style='Clean.TFrame')
+        inputs_frame.pack(fill='x', pady=10)
         
-        # COM Port
-        port_frame = ttk.Frame(inputs_frame, style='Dark.TFrame')
-        port_frame.pack(side='left', padx=(0, 15), fill='y')
-        ttk.Label(port_frame, text="COM Port:", style='Section.TLabel').pack(anchor='w')
-        self.port_entry = ttk.Entry(port_frame, textvariable=self.port_var, width=12, style='Dark.TEntry')
-        self.port_entry.pack(pady=(2, 2))
-        ttk.Label(port_frame, text="Format: COM1-COM99", style='Hint.TLabel').pack(anchor='w')
+        # Configure grid columns with proper weights
+        inputs_frame.grid_columnconfigure(0, weight=1, minsize=160)
+        inputs_frame.grid_columnconfigure(1, weight=1, minsize=120)
+        inputs_frame.grid_columnconfigure(2, weight=1, minsize=120)
         
-        # Baud Rate
-        baud_frame = ttk.Frame(inputs_frame, style='Dark.TFrame')
-        baud_frame.pack(side='left', padx=(0, 15), fill='y')
-        ttk.Label(baud_frame, text="Baud Rate:", style='Section.TLabel').pack(anchor='w')
-        self.baud_combo = ttk.Combobox(baud_frame, textvariable=self.baudrate_var, width=12,
+        # COM Port (Column 0)
+        port_frame = ttk.Frame(inputs_frame, style='Clean.TFrame')
+        port_frame.grid(row=0, column=0, padx=(0, 15), sticky='ew')
+        
+        # Port label with more spacing
+        ttk.Label(port_frame, text="COM Port:", style='Section.TLabel').pack(anchor='w', pady=(0, 3))
+        
+        # Port combobox and refresh button container
+        port_input_frame = ttk.Frame(port_frame, style='Clean.TFrame')
+        port_input_frame.pack(fill='x', pady=(0, 3))
+        
+        # Get available ports
+        self.available_ports = get_available_ports()
+        current_port = self.port_var.get()
+        if current_port and current_port not in self.available_ports:
+            self.available_ports.append(current_port)
+        
+        self.port_combo = ttk.Combobox(port_input_frame, textvariable=self.port_var, width=10,
+                                      values=self.available_ports, style='Dark.TCombobox')
+        self.port_combo.pack(side='left', fill='x', expand=True)
+        
+        refresh_btn = ttk.Button(port_input_frame, text="🔄", width=2, 
+                                command=self.refresh_ports, style='Dark.TButton')
+        refresh_btn.pack(side='right', padx=(3, 0))
+        
+        ttk.Label(port_frame, text="Auto-detected ports", style='Hint.TLabel').pack(anchor='w')
+        
+        # Baud Rate (Column 1)
+        baud_frame = ttk.Frame(inputs_frame, style='Clean.TFrame')
+        baud_frame.grid(row=0, column=1, padx=(0, 15), sticky='ew')
+        
+        ttk.Label(baud_frame, text="Baud Rate:", style='Section.TLabel').pack(anchor='w', pady=(0, 3))
+        self.baud_combo = ttk.Combobox(baud_frame, textvariable=self.baudrate_var, width=10,
                                       values=['9600', '19200', '38400', '57600', '115200'],
                                       state='readonly', style='Dark.TCombobox')
-        self.baud_combo.pack(pady=(2, 2))
+        self.baud_combo.pack(pady=(0, 3), fill='x')
         ttk.Label(baud_frame, text="Standard rates", style='Hint.TLabel').pack(anchor='w')
         
-        # Timeout
-        timeout_frame = ttk.Frame(inputs_frame, style='Dark.TFrame')
-        timeout_frame.pack(side='left', fill='y')
-        ttk.Label(timeout_frame, text="Timeout (s):", style='Section.TLabel').pack(anchor='w')
-        self.timeout_entry = ttk.Entry(timeout_frame, textvariable=self.timeout_var, width=12, style='Dark.TEntry')
-        self.timeout_entry.pack(pady=(2, 2))
+        # Timeout (Column 2)
+        timeout_frame = ttk.Frame(inputs_frame, style='Clean.TFrame')
+        timeout_frame.grid(row=0, column=2, sticky='ew')
+        
+        ttk.Label(timeout_frame, text="Timeout (s):", style='Section.TLabel').pack(anchor='w', pady=(0, 3))
+        self.timeout_entry = ttk.Entry(timeout_frame, textvariable=self.timeout_var, width=10, style='Dark.TEntry')
+        self.timeout_entry.pack(pady=(0, 3), fill='x')
         ttk.Label(timeout_frame, text="0.1 - 10 seconds", style='Hint.TLabel').pack(anchor='w')
         
         # Features Frame
@@ -261,8 +349,8 @@ class GPIOConfigGUI:
         
         ttk.Label(features_frame, text="Features", style='Section.TLabel').pack(anchor='w', pady=(0, 10))
         
-        # Checkboxes with better spacing
-        checkbox_frame = ttk.Frame(features_frame, style='Dark.TFrame')
+        # Checkboxes with better spacing - no border to avoid double borders
+        checkbox_frame = ttk.Frame(features_frame, style='Clean.TFrame')
         checkbox_frame.pack(fill='x')
         
         self.volume_check = ttk.Checkbutton(checkbox_frame, text="Volume Control", 
@@ -286,6 +374,25 @@ class GPIOConfigGUI:
                   style='Cancel.TButton', width=10).pack(side='right', padx=(10, 0))
         ttk.Button(buttons_frame, text="Save", command=self.save_config, 
                   style='Save.TButton', width=10).pack(side='right')
+    
+    def refresh_ports(self):
+        """Refresh the list of available COM ports"""
+        try:
+            # Get updated list of ports
+            self.available_ports = get_available_ports()
+            current_port = self.port_var.get()
+            
+            # Ensure current port is still in the list
+            if current_port and current_port not in self.available_ports:
+                self.available_ports.append(current_port)
+            
+            # Update combobox values
+            self.port_combo['values'] = self.available_ports
+            
+            print(f"[GPIO] Refreshed COM ports: {self.available_ports}")
+        except Exception as e:
+            print(f"[GPIO] Error refreshing ports: {e}")
+            messagebox.showerror("Error", f"Failed to refresh COM ports: {e}")
     
     def validate_inputs(self):
         """Validate all input fields"""

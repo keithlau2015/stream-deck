@@ -6,22 +6,41 @@ import os
 import time
 from datetime import datetime
 
+def get_resource_path(relative_path):
+    """Get the absolute path to a resource, works for PyInstaller bundles and source"""
+    try:
+        # If running from PyInstaller bundle
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, relative_path)
+        
+        # If running from source
+        if __file__:
+            return os.path.join(os.path.dirname(os.path.dirname(__file__)), relative_path)
+        
+        # If running from installed app
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    except:
+        return relative_path
+
 def create_icon_image():
-    """Create a simple icon for the system tray"""
-    # Create a 64x64 image with a simple design
-    image = Image.new('RGB', (64, 64), color=(30, 30, 30))
-    draw = ImageDraw.Draw(image)
-    
-    # Draw a simple grid pattern representing buttons
-    for i in range(3):
-        for j in range(3):
-            x1 = 8 + i * 16
-            y1 = 8 + j * 16
-            x2 = x1 + 12
-            y2 = y1 + 12
-            draw.rectangle([x1, y1, x2, y2], fill=(200, 120, 40), outline=(255, 255, 255))
-            
-    return image
+    """Load the icon from assets or create a fallback icon"""
+    try:
+        from icon_utils import load_pil_icon
+        return load_pil_icon()
+    except ImportError:
+        print("[TRAY WARNING] Icon utils not available, using fallback creation")
+        # Fallback implementation
+        from PIL import ImageDraw
+        image = Image.new('RGBA', (64, 64), color=(0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+        draw.ellipse([4, 4, 60, 60], fill=(45, 45, 45), outline=(255, 255, 255), width=2)
+        for i in range(3):
+            for j in range(3):
+                x1, y1 = 16 + i * 12, 16 + j * 12
+                x2, y2 = x1 + 8, y1 + 8
+                color = (255, 140, 0) if (i + j) % 2 == 0 else (100, 180, 255)
+                draw.rectangle([x1, y1, x2, y2], fill=color, outline=(255, 255, 255), width=1)
+        return image
 
 def quit_application(icon):
     """Quit the application properly"""
@@ -134,6 +153,19 @@ def create_tray_icon(config_callback):
             info_window.resizable(True, True)
             info_window.configure(bg=bg_color)
             
+            # Set window icon (if available)
+            try:
+                from icon_utils import set_tkinter_window_icon
+                set_tkinter_window_icon(info_window)
+            except ImportError:
+                # Fallback if icon_utils is not available
+                try:
+                    icon_path = get_resource_path(os.path.join('assets', 'icon.ico'))
+                    if os.path.exists(icon_path):
+                        info_window.iconbitmap(default=icon_path)
+                except:
+                    pass  # Ignore if icon file doesn't exist
+            
             # Configure dark theme styles
             style = ttk.Style()
             style.theme_use('clam')
@@ -222,7 +254,7 @@ def create_tray_icon(config_callback):
                 
                 # Show notification
                 try:
-                    icon.notify("Update Available", f"StreamDeck V2 version {version} is available!")
+                    icon.notify("Update Available", f"StreamDeck version {version} is available!")
                 except Exception as notify_error:
                     print(f"[TRAY WARNING] Notification failed: {notify_error}")
                 
@@ -402,11 +434,11 @@ def create_tray_icon(config_callback):
     menu = create_menu()
     
     # Create and run the tray icon
-    icon = pystray.Icon("StreamDeck", image, "StreamDeck V2", menu)
+    icon = pystray.Icon("StreamDeck", image, "StreamDeck", menu)
     
-    print("[TRAY] StreamDeck V2 started in system tray")
+    print("[TRAY] StreamDeck started in system tray")
     try:
-        icon.notify("StreamDeck V2 is running", "Right-click the tray icon for options")
+        icon.notify("StreamDeck is running", "Right-click the tray icon for options")
     except:
         pass  # Notifications might not be supported on all systems
     

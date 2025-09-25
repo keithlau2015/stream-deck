@@ -1,9 +1,26 @@
 import pygame
 import os
+import sys
 import tkinter as tk
 from tkinter import simpledialog, filedialog
 import webbrowser
 from gpio import execute_action
+
+def get_resource_path(relative_path):
+    """Get the absolute path to a resource, works for PyInstaller bundles and source"""
+    try:
+        # If running from PyInstaller bundle
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, relative_path)
+        
+        # If running from source
+        if __file__:
+            return os.path.join(os.path.dirname(os.path.dirname(__file__)), relative_path)
+        
+        # If running from installed app
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    except:
+        return relative_path
 
 # Global constants
 FONT = None
@@ -54,7 +71,23 @@ def init_pygame():
     SMALL_FONT = pygame.font.SysFont(None, 16)
     MEDIUM_FONT = pygame.font.SysFont(None, 18)  # Create once, reuse everywhere
     SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("StreamDeck V2")
+    pygame.display.set_caption("StreamDeck")
+    
+    # Set window icon using utility function
+    try:
+        from icon_utils import set_pygame_window_icon
+        set_pygame_window_icon()
+    except ImportError:
+        print("[GUI WARNING] Icon utils not available, using fallback")
+        # Fallback if icon_utils is not available
+        try:
+            icon_path = get_resource_path(os.path.join('assets', 'icon.ico'))
+            if os.path.exists(icon_path):
+                icon_surface = pygame.image.load(icon_path)
+                pygame.display.set_icon(icon_surface)
+                print(f"[GUI] Window icon loaded from: {icon_path}")
+        except Exception as e:
+            print(f"[GUI WARNING] Failed to load window icon: {e}")
 
 def update_cursor():
     """Update cursor blink state"""
@@ -390,6 +423,19 @@ def find_button_click(mx, my):
 def configure_button(button_key, config):
     root = tk.Tk()
     root.title(f"Configure {button_key}")
+    
+    # Set window icon (if available)
+    try:
+        from icon_utils import set_tkinter_window_icon
+        set_tkinter_window_icon(root)
+    except ImportError:
+        # Fallback if icon_utils is not available
+        try:
+            icon_path = get_resource_path(os.path.join('assets', 'icon.ico'))
+            if os.path.exists(icon_path):
+                root.iconbitmap(default=icon_path)
+        except:
+            pass  # Ignore if icon file doesn't exist
 
     choice_var = tk.StringVar(root)
     choice_var.set(config[button_key]["type"])

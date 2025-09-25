@@ -295,7 +295,7 @@ def start_serial_background():
     print("[MAIN] Serial monitoring started in background")
 
 def main():
-    print("StreamDeck V2 - Starting background service...")
+    print("StreamDeck - Starting background service...")
     
     # Check for command line parameters
     import sys

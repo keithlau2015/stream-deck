@@ -1,5 +1,5 @@
 """
-StreamDeck V2 - Update Settings Controller
+StreamDeck - Update Settings Controller
 更新设置控制器
 """
 
@@ -7,16 +7,48 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import os
+import sys
 from version import get_update_manager, get_current_version
+
+def get_resource_path(relative_path):
+    """Get the absolute path to a resource, works for PyInstaller bundles and source"""
+    try:
+        # If running from PyInstaller bundle
+        if hasattr(sys, '_MEIPASS'):
+            return os.path.join(sys._MEIPASS, relative_path)
+        
+        # If running from source
+        if __file__:
+            return os.path.join(os.path.dirname(os.path.dirname(__file__)), relative_path)
+        
+        # If running from installed app
+        return os.path.join(os.path.dirname(sys.executable), relative_path)
+    except:
+        return relative_path
 
 class UpdateSettingsGUI:
     def __init__(self):
         self.update_manager = get_update_manager()
         self.root = tk.Tk()
-        self.root.title("StreamDeck V2 - Update Settings")
+        self.root.title("StreamDeck - Update Settings")
         self.root.geometry("580x650")  # Increased width and height
         self.root.resizable(True, True)  # Allow both horizontal and vertical resizing
         self.root.minsize(580, 650)  # Set minimum size
+        
+        # Set window icon (if available)
+        try:
+            from icon_utils import set_tkinter_window_icon
+            set_tkinter_window_icon(self.root)
+        except ImportError:
+            print("[UPDATE] Icon utils not available, using fallback")
+            # Fallback if icon_utils is not available
+            try:
+                icon_path = get_resource_path(os.path.join('assets', 'icon.ico'))
+                if os.path.exists(icon_path):
+                    self.root.iconbitmap(default=icon_path)
+                    print(f"[UPDATE] Window icon set from: {icon_path}")
+            except Exception as e:
+                print(f"[UPDATE WARNING] Failed to set window icon: {e}")
         
         # Dark theme colors (unified with application theme)
         self.bg_color = "#1e1e1e"          # Main background

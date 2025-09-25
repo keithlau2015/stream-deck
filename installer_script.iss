@@ -43,15 +43,15 @@ Name: "startup"; Description: "Start StreamDeck when Windows starts"; GroupDescr
 [Files]
 Source: "dist\StreamDeck.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "gpio_config_template.json"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\gpio_config.json"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "src\console_deck_v2_arduino_code\*"; DestDir: "{app}\arduino_code"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\StreamDeck"; Filename: "{app}\StreamDeck.exe"
-Name: "{group}\Configure GPIO"; Filename: "{app}\StreamDeck.exe"; Parameters: "--config-gpio"
+Name: "{group}\StreamDeck"; Filename: "{app}\StreamDeck.exe"; IconFilename: "{app}\assets\icon.ico"
+Name: "{group}\Configure GPIO"; Filename: "{app}\StreamDeck.exe"; Parameters: "--config-gpio"; IconFilename: "{app}\assets\icon.ico"
 Name: "{group}\Uninstall StreamDeck"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\StreamDeck"; Filename: "{app}\StreamDeck.exe"; Tasks: desktopicon
+Name: "{autodesktop}\StreamDeck"; Filename: "{app}\StreamDeck.exe"; IconFilename: "{app}\assets\icon.ico"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "StreamDeck"; ValueData: """{app}\StreamDeck.exe"""; Flags: uninsdeletevalue; Tasks: startup
