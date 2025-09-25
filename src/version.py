@@ -16,7 +16,7 @@ import subprocess
 from datetime import datetime, timedelta
 
 # Application Version - MANUALLY UPDATE THIS
-CURRENT_VERSION = "2.0.0"  # 手动更新这个版本号
+CURRENT_VERSION = "2.2.0"  # 手动更新这个版本号
 
 # GitHub repository information
 GITHUB_REPO = "keithlau2015/stream-deck"
