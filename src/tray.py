@@ -114,6 +114,8 @@ def create_tray_icon(config_callback):
         def check_thread():
             try:
                 print("[TRAY] Checking for updates...")
+                # Refresh tray icon before showing notifications
+                refresh_tray_icon()
                 has_update = update_manager.check_for_updates(manual=True)
                 if has_update:
                     icon.notify("Update Available", f"Version {update_manager.latest_version} is available!")
@@ -252,6 +254,9 @@ def create_tray_icon(config_callback):
                 version = data.get("latest_version", "unknown")
                 print(f"[TRAY] Update available: {version}")
                 
+                # Refresh tray icon before showing notification
+                refresh_tray_icon()
+                
                 # Show notification
                 try:
                     icon.notify("Update Available", f"StreamDeck version {version} is available!")
@@ -291,6 +296,7 @@ def create_tray_icon(config_callback):
             elif event_type == "auto_update_started":
                 version = data.get("version", "unknown")
                 try:
+                    refresh_tray_icon()
                     icon.notify("🔄 Auto-Update Started", f"自动下载版本 {version}...")
                     print(f"[TRAY] Auto-update started for version {version}")
                 except:
@@ -364,14 +370,18 @@ def create_tray_icon(config_callback):
         except Exception as e:
             print(f"[TRAY ERROR] Update callback error: {e}")
     
-    # Register update callback
-    if update_manager:
-        update_manager.add_update_callback(update_callback)
-        # Start background checker
-        update_manager.start_background_checker()
-    
     # Create the icon image
     image = create_icon_image()
+    
+    def refresh_tray_icon():
+        """Refresh the tray icon with latest icon file"""
+        try:
+            print("[TRAY] Refreshing tray icon...")
+            new_image = create_icon_image()
+            icon.icon = new_image
+            print("[TRAY] Tray icon refreshed successfully")
+        except Exception as e:
+            print(f"[TRAY WARNING] Failed to refresh tray icon: {e}")
     
     def open_update_settings():
         """Open update settings GUI"""
@@ -400,19 +410,6 @@ def create_tray_icon(config_callback):
         # Always show check for updates
         items.append(pystray.MenuItem("Check for Updates", check_for_updates_manual))
         
-        # Show update available status (simplified)
-        if has_update and latest_ver:
-            items.extend([
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem(f"🔄 Auto-Updating to v{latest_ver}...", show_update_info),
-                pystray.MenuItem("ℹ️ Release Notes", show_update_info),
-            ])
-        else:
-            items.extend([
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem("✅ Up to Date", lambda: None),  # Disabled item
-            ])
-        
         items.extend([
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("⚙️ Update Settings", open_update_settings),
@@ -435,6 +432,12 @@ def create_tray_icon(config_callback):
     
     # Create and run the tray icon
     icon = pystray.Icon("StreamDeck", image, "StreamDeck", menu)
+    
+    # Register update callback after icon is created
+    if update_manager:
+        update_manager.add_update_callback(update_callback)
+        # Start background checker
+        update_manager.start_background_checker()
     
     print("[TRAY] StreamDeck started in system tray")
     try:
